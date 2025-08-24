@@ -6,9 +6,11 @@ import simpleGit from "simple-git";
 import sound from "play-sound";
 import fs from "fs";
 import path from "path";
+import os from "os";
 
 const GitCommitHistoryApp = () => {
   const [commits, setCommits] = useState([]);
+  const [lastClaudeInput, setLastClaudeInput] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [animatingIndex, setAnimatingIndex] = useState(-1);
   const [animationProgress, setAnimationProgress] = useState(0);
@@ -140,17 +142,108 @@ const GitCommitHistoryApp = () => {
     }
   };
 
+  // Load last Claude Code conversation input
+  const loadLastClaudeInput = () => {
+    try {
+      const currentDir = process.cwd();
+      const claudeProjectPath = path.join(os.homedir(), '.claude', 'projects', `${currentDir.replace(/\//g, '-')}`);
+      
+      if (!fs.existsSync(claudeProjectPath)) {
+        setLastClaudeInput({ text: "No Claude Code history found", timestamp: "" });
+        return;
+      }
+
+      const files = fs.readdirSync(claudeProjectPath);
+      const jsonlFiles = files.filter(file => file.endsWith('.jsonl'));
+      
+      if (jsonlFiles.length === 0) {
+        setLastClaudeInput({ text: "No conversation files found", timestamp: "" });
+        return;
+      }
+
+      // Collect all user inputs from all conversation files
+      const allUserInputs = [];
+      
+      for (const file of jsonlFiles) {
+        const filePath = path.join(claudeProjectPath, file);
+        try {
+          const content = fs.readFileSync(filePath, 'utf8');
+          const lines = content.split('\n').filter(line => line.trim());
+          
+          for (const line of lines) {
+            try {
+              const message = JSON.parse(line);
+              
+              // Filter for actual user input messages (same logic as original script)
+              if (message.type === 'user' && 
+                  message.message && 
+                  message.message.content &&
+                  !message.isMeta &&
+                  !message.message.content.startsWith('Caveat:') &&
+                  !message.message.content.includes('<command-name>') &&
+                  !message.message.content.includes('<local-command-stdout>') &&
+                  message.message.content !== '[Request interrupted by user for tool use]') {
+                
+                const utcDate = new Date(message.timestamp);
+                const formattedDate = utcDate.toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                });
+                const formattedTime = utcDate.toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true
+                });
+                
+                allUserInputs.push({
+                  text: message.message.content,
+                  timestamp: `${formattedDate} at ${formattedTime}`,
+                  rawTimestamp: utcDate
+                });
+              }
+            } catch (parseError) {
+              // Skip invalid JSON lines
+              continue;
+            }
+          }
+        } catch (fileError) {
+          console.warn(`Failed to read file ${filePath}:`, fileError.message);
+          continue;
+        }
+      }
+      
+      // Sort by timestamp and get the last input
+      allUserInputs.sort((a, b) => a.rawTimestamp - b.rawTimestamp);
+      
+      if (allUserInputs.length > 0) {
+        const lastInput = allUserInputs[allUserInputs.length - 1];
+        setLastClaudeInput({
+          text: lastInput.text,
+          timestamp: lastInput.timestamp
+        });
+      } else {
+        setLastClaudeInput({ text: "No user inputs found", timestamp: "" });
+      }
+      
+    } catch (error) {
+      console.error("Failed to load Claude Code history:", error.message);
+      setLastClaudeInput({ text: "Error loading Claude history", timestamp: "" });
+    }
+  };
+
   useEffect(() => {
     // Initial load
     loadCommits();
+    loadLastClaudeInput();
     
     // Watch for Git changes
     const gitLogPath = path.join(process.cwd(), '.git', 'logs', 'HEAD');
-    let watcher = null;
+    let gitWatcher = null;
     
     try {
       if (fs.existsSync(gitLogPath)) {
-        watcher = fs.watch(gitLogPath, (eventType) => {
+        gitWatcher = fs.watch(gitLogPath, (eventType) => {
           if (eventType === 'change') {
             loadCommits();
           }
@@ -162,10 +255,32 @@ const GitCommitHistoryApp = () => {
       console.warn("Failed to setup Git file watching:", error.message);
     }
     
-    // Cleanup watcher on unmount
+    // Watch for Claude Code conversation changes
+    const currentDir = process.cwd();
+    const claudeProjectPath = path.join(os.homedir(), '.claude', 'projects', `${currentDir.replace(/\//g, '-')}`);
+    let claudeWatcher = null;
+    
+    try {
+      if (fs.existsSync(claudeProjectPath)) {
+        claudeWatcher = fs.watch(claudeProjectPath, (eventType, filename) => {
+          if (eventType === 'change' && filename && filename.endsWith('.jsonl')) {
+            loadLastClaudeInput();
+          }
+        });
+      } else {
+        console.warn("Claude Code project directory not found - Claude history auto-refresh disabled");
+      }
+    } catch (error) {
+      console.warn("Failed to setup Claude Code file watching:", error.message);
+    }
+    
+    // Cleanup watchers on unmount
     return () => {
-      if (watcher) {
-        watcher.close();
+      if (gitWatcher) {
+        gitWatcher.close();
+      }
+      if (claudeWatcher) {
+        claudeWatcher.close();
       }
     };
   }, []);
@@ -495,6 +610,38 @@ const GitCommitHistoryApp = () => {
                 windowStart + index === selectedIndex
               )
             ),
+
+        React.createElement(Text, null, " "),
+
+        // Claude Code input box
+        React.createElement(
+          Box,
+          { borderStyle: "single", height: 4 },
+          React.createElement(
+            Box,
+            { flexDirection: "column", padding: 0 },
+            React.createElement(
+              Text,
+              { bold: true, color: "cyan" },
+              "Last Claude Code Input:"
+            ),
+            lastClaudeInput ? React.createElement(
+              Text,
+              { color: "yellow" },
+              `> ${lastClaudeInput.text.length > 68 ? lastClaudeInput.text.slice(0, 65) + "..." : lastClaudeInput.text}`
+            ) : React.createElement(
+              Text,
+              { color: "gray" },
+              "> Loading..."
+            ),
+            lastClaudeInput && lastClaudeInput.timestamp ? React.createElement(
+              Text,
+              { color: "gray" },
+              `  ${lastClaudeInput.timestamp}`
+            ) : React.createElement(Text, null, " "),
+            React.createElement(Text, null, " ")
+          )
+        ),
 
         commits.length > 4 &&
           React.createElement(
