@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { render, Text, Box, useInput, useApp } from "ink";
 import chalk from "chalk";
 import { execSync } from "child_process";
+import sound from "play-sound";
 
 const ConversationHistoryApp = () => {
   const [conversations, setConversations] = useState([]);
@@ -11,6 +12,18 @@ const ConversationHistoryApp = () => {
   const [animationProgress, setAnimationProgress] = useState(0);
   const [windowStart, setWindowStart] = useState(0);
   const { exit } = useApp();
+
+  // Initialize sound player
+  const player = sound();
+
+  // Play menu move sound
+  const playMenuSound = () => {
+    try {
+      player.play("sounds/menu-move.wav");
+    } catch (error) {
+      // Silently fail if sound can't be played
+    }
+  };
 
   // Load conversation history
   useEffect(() => {
@@ -54,6 +67,10 @@ const ConversationHistoryApp = () => {
     if (key.upArrow) {
       setSelectedIndex((prev) => {
         const newIndex = Math.max(0, prev - 1);
+        // Only play sound if selection actually changed
+        if (newIndex !== prev) {
+          playMenuSound();
+        }
         // Adjust window if selection goes above visible area
         if (newIndex < windowStart) {
           setWindowStart(newIndex);
@@ -65,6 +82,10 @@ const ConversationHistoryApp = () => {
     if (key.downArrow) {
       setSelectedIndex((prev) => {
         const newIndex = Math.min(conversations.length - 1, prev + 1);
+        // Only play sound if selection actually changed
+        if (newIndex !== prev) {
+          playMenuSound();
+        }
         // Adjust window if selection goes below visible area
         if (newIndex >= windowStart + 4) {
           setWindowStart(newIndex - 3);
