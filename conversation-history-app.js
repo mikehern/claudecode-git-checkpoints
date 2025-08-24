@@ -20,6 +20,9 @@ const GitCommitHistoryApp = () => {
   const [showClaudeInput, setShowClaudeInput] = useState(false);
   const [showCreateVibepoint, setShowCreateVibepoint] = useState(false);
   const [createVibepointSelectedIndex, setCreateVibepointSelectedIndex] = useState(0);
+  const [option1Animating, setOption1Animating] = useState(false);
+  const [option1AnimationProgress, setOption1AnimationProgress] = useState(0);
+  const [createVibepointError, setCreateVibepointError] = useState(null);
   const [options, setOptions] = useState({ audio: true });
   const [optionsSelectedIndex, setOptionsSelectedIndex] = useState(0);
   const { exit } = useApp();
@@ -129,6 +132,37 @@ const GitCommitHistoryApp = () => {
     } catch (error) {
       console.error("Failed to load commit history:", error.message);
       setCommits([{ text: "Error loading commits", timestamp: "Unknown" }]);
+    }
+  };
+
+  // Create vibepoint with last user input
+  const createVibepointWithLastInput = async () => {
+    try {
+      setCreateVibepointError(null);
+      const git = simpleGit(process.cwd());
+      
+      // Get the commit message from the actual displayed text (without the "1 " prefix)
+      const commitMessage = lastClaudeInput && lastClaudeInput.text 
+        ? lastClaudeInput.text 
+        : "No recent input found";
+      
+      // Stage all changes
+      await git.add('.');
+      
+      // Commit with the message
+      await git.commit(commitMessage);
+      
+      // Refresh the commit list and return to main page
+      loadCommits();
+      setShowCreateVibepoint(false);
+      setOption1Animating(false);
+      setOption1AnimationProgress(0);
+      
+    } catch (error) {
+      console.error("Failed to create vibepoint:", error.message);
+      setCreateVibepointError(`Error: ${error.message}`);
+      setOption1Animating(false);
+      setOption1AnimationProgress(0);
     }
   };
 
@@ -319,6 +353,14 @@ const GitCommitHistoryApp = () => {
       if (key.escape) {
         playNextSound();
         setShowCreateVibepoint(false);
+        setCreateVibepointError(null);
+        setOption1Animating(false);
+        setOption1AnimationProgress(0);
+        return;
+      }
+      
+      // Prevent navigation while animating
+      if (option1Animating) {
         return;
       }
 
@@ -346,7 +388,10 @@ const GitCommitHistoryApp = () => {
         playAnimationSound();
         // Execute based on currently selected option
         if (createVibepointSelectedIndex === 0) {
-          // TODO: Navigate to option 1 page (use last user input)
+          // Start Option 1 animation and git operations
+          setCreateVibepointError(null);
+          setOption1Animating(true);
+          setOption1AnimationProgress(0);
         } else if (createVibepointSelectedIndex === 1) {
           // TODO: Navigate to customize page
         } else if (createVibepointSelectedIndex === 2) {
@@ -358,7 +403,10 @@ const GitCommitHistoryApp = () => {
       if (input === "1") {
         setCreateVibepointSelectedIndex(0);
         playAnimationSound();
-        // TODO: Navigate to option 1 page (use last user input)
+        // Start Option 1 animation and git operations
+        setCreateVibepointError(null);
+        setOption1Animating(true);
+        setOption1AnimationProgress(0);
       } else if (input === "2") {
         setCreateVibepointSelectedIndex(1);
         playAnimationSound();
@@ -491,7 +539,7 @@ const GitCommitHistoryApp = () => {
     }
   });
 
-  // Animation effect
+  // Animation effect for main page commits
   useEffect(() => {
     if (animatingIndex !== -1) {
       const commit = commits[animatingIndex];
@@ -512,11 +560,36 @@ const GitCommitHistoryApp = () => {
           }
           return next;
         });
-      }, 5); // 50ms per character
+      }, 5); // 5ms per character
 
       return () => clearInterval(interval);
     }
   }, [animatingIndex, commits]);
+
+  // Animation effect for Option 1 in Create Vibepoint page
+  useEffect(() => {
+    if (option1Animating) {
+      const option1Text = lastClaudeInput && lastClaudeInput.text 
+        ? lastClaudeInput.text 
+        : "No recent input found";
+      const totalChars = option1Text.length;
+      
+      const interval = setInterval(() => {
+        setOption1AnimationProgress((prev) => {
+          const next = prev + 1;
+          if (next >= totalChars) {
+            clearInterval(interval);
+            // After animation completes, execute git operations
+            createVibepointWithLastInput();
+            return totalChars;
+          }
+          return next;
+        });
+      }, 10); // 10ms per character
+
+      return () => clearInterval(interval);
+    }
+  }, [option1Animating, lastClaudeInput]);
 
   // Create display items ("Create vibepoint" + commits)
   const displayItems = [
@@ -616,6 +689,35 @@ const GitCommitHistoryApp = () => {
           getCreateVibepointOptions().map((option, index) => {
             const isSelected = index === createVibepointSelectedIndex;
             const indicator = isSelected ? ">" : " ";
+            
+            // Special handling for Option 1 animation
+            if (index === 0 && option1Animating) {
+              const baseText = "1 ";
+              const animatedText = lastClaudeInput && lastClaudeInput.text 
+                ? lastClaudeInput.text 
+                : "No recent input found";
+              
+              let displayText;
+              if (option1AnimationProgress < animatedText.length) {
+                // Show animated portion in green, rest in default color
+                const animatedPortion = animatedText.slice(0, option1AnimationProgress);
+                const remainingPortion = animatedText.slice(option1AnimationProgress);
+                displayText = `${indicator} ${baseText}${chalk.green(animatedPortion)}${remainingPortion}`;
+              } else {
+                // Animation complete - show all in green
+                displayText = `${indicator} ${baseText}${chalk.green(animatedText)}`;
+              }
+              
+              return React.createElement(
+                Box,
+                { key: index, width: "100%" },
+                React.createElement(
+                  Text,
+                  { color: isSelected ? "yellow" : "white", wrap: "truncate" },
+                  displayText
+                )
+              );
+            }
 
             return React.createElement(
               Box,
@@ -629,7 +731,15 @@ const GitCommitHistoryApp = () => {
           }),
 
           React.createElement(Text, null, " "),
-          React.createElement(Text, { color: "gray" }, "Press 1-3 to select • Enter to confirm • Esc to go back")
+          React.createElement(Text, { color: "gray" }, "Press 1-3 to select • Enter to confirm • Esc to go back"),
+          
+          // Error display
+          createVibepointError && React.createElement(Text, null, " "),
+          createVibepointError && React.createElement(
+            Text,
+            { color: "red" },
+            createVibepointError
+          )
         )
       )
     );
