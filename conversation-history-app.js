@@ -17,6 +17,7 @@ const GitCommitHistoryApp = () => {
   const [windowStart, setWindowStart] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
+  const [showClaudeInput, setShowClaudeInput] = useState(false);
   const [options, setOptions] = useState({ audio: true });
   const [optionsSelectedIndex, setOptionsSelectedIndex] = useState(0);
   const { exit } = useApp();
@@ -311,6 +312,17 @@ const GitCommitHistoryApp = () => {
 
   // Handle keyboard input
   useInput((input, key) => {
+    if (showClaudeInput) {
+      // Claude input page navigation
+      if (key.escape) {
+        playNextSound();
+        setShowClaudeInput(false);
+        return;
+      }
+      
+      return;
+    }
+
     if (showUndoConfirm) {
       // Undo confirmation page
       if (key.escape) {
@@ -361,6 +373,11 @@ const GitCommitHistoryApp = () => {
 
     if (input === "u") {
       setShowUndoConfirm(true);
+      return;
+    }
+
+    if (input === "v") {
+      setShowClaudeInput(true);
       return;
     }
 
@@ -484,6 +501,52 @@ const GitCommitHistoryApp = () => {
     );
   };
 
+  // Render Claude input view
+  const renderClaudeInputView = () => {
+    return React.createElement(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      React.createElement(
+        Box,
+        { borderStyle: "single", height: 4 },
+        React.createElement(
+          Box,
+          { flexDirection: "column", padding: 0 },
+          React.createElement(
+            Text,
+            { bold: true, color: "cyan" },
+            "Last Claude Code Input:"
+          ),
+          lastClaudeInput
+            ? React.createElement(
+                Text,
+                { color: "red" },
+                `> ${
+                  lastClaudeInput.text.length > 68
+                    ? lastClaudeInput.text.slice(0, 65) + "..."
+                    : lastClaudeInput.text
+                }`
+              )
+            : React.createElement(Text, { color: "gray" }, "> Loading..."),
+          lastClaudeInput && lastClaudeInput.timestamp
+            ? React.createElement(
+                Text,
+                { color: "gray" },
+                `  ${lastClaudeInput.timestamp}`
+              )
+            : React.createElement(Text, null, " "),
+          React.createElement(Text, null, " ")
+        )
+      ),
+      React.createElement(Text, null, " "),
+      React.createElement(
+        Text,
+        { color: "gray" },
+        "Press 'Esc' to go back"
+      )
+    );
+  };
+
   // Render options view
   const renderOptionsView = () => {
     return React.createElement(
@@ -573,6 +636,65 @@ const GitCommitHistoryApp = () => {
     );
   };
 
+  // Render main view  
+  const renderMainView = () => {
+    return React.createElement(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      React.createElement(
+        Box,
+        { borderStyle: "single", padding: 1 },
+        React.createElement(
+          Box,
+          { flexDirection: "column" },
+          React.createElement(
+            Text,
+            { bold: true, color: "magenta" },
+            "Git Commit History"
+          ),
+          React.createElement(
+            Text,
+            { color: "gray" },
+            "Use ↑↓ to navigate • Press 1 to animate • u to undo • v for input • o for options • q/Esc to exit"
+          ),
+          React.createElement(Text, null, " "),
+
+          visibleCommits.length === 0
+            ? React.createElement(Text, { color: "yellow" }, "Loading commits...")
+            : visibleCommits.map((commit, index) =>
+                renderCommit(commit, index, windowStart + index === selectedIndex)
+              ),
+
+          React.createElement(Text, null, " "),
+
+          commits.length > 4 &&
+            React.createElement(
+              Text,
+              { color: "gray" },
+              `Showing ${windowStart + 1}-${Math.min(
+                windowStart + 4,
+                commits.length
+              )} of ${commits.length} commits`
+            )
+        )
+      ),
+      
+      // Footer with 72-character preview of last Claude input
+      lastClaudeInput && lastClaudeInput.text &&
+        React.createElement(
+          Text,
+          { color: "gray" },
+          lastClaudeInput.text.length > 72
+            ? lastClaudeInput.text.slice(0, 72)
+            : lastClaudeInput.text
+        )
+    );
+  };
+
+  if (showClaudeInput) {
+    return renderClaudeInputView();
+  }
+
   if (showUndoConfirm) {
     return renderUndoConfirmView();
   }
@@ -581,81 +703,7 @@ const GitCommitHistoryApp = () => {
     return renderOptionsView();
   }
 
-  return React.createElement(
-    Box,
-    { flexDirection: "column", padding: 1 },
-    React.createElement(
-      Box,
-      { borderStyle: "single", padding: 1 },
-      React.createElement(
-        Box,
-        { flexDirection: "column" },
-        React.createElement(
-          Text,
-          { bold: true, color: "magenta" },
-          "Git Commit History"
-        ),
-        React.createElement(
-          Text,
-          { color: "gray" },
-          "Use ↑↓ to navigate • Press 1 to animate • u to undo • o for options • q/Esc to exit"
-        ),
-        React.createElement(Text, null, " "),
-
-        visibleCommits.length === 0
-          ? React.createElement(Text, { color: "yellow" }, "Loading commits...")
-          : visibleCommits.map((commit, index) =>
-              renderCommit(commit, index, windowStart + index === selectedIndex)
-            ),
-
-        React.createElement(Text, null, " "),
-
-        // Claude Code input box
-        React.createElement(
-          Box,
-          { borderStyle: "single", height: 4 },
-          React.createElement(
-            Box,
-            { flexDirection: "column", padding: 0 },
-            React.createElement(
-              Text,
-              { bold: true, color: "cyan" },
-              "Last Claude Code Input:"
-            ),
-            lastClaudeInput
-              ? React.createElement(
-                  Text,
-                  { color: "red" },
-                  `> ${
-                    lastClaudeInput.text.length > 68
-                      ? lastClaudeInput.text.slice(0, 65) + "..."
-                      : lastClaudeInput.text
-                  }`
-                )
-              : React.createElement(Text, { color: "gray" }, "> Loading..."),
-            lastClaudeInput && lastClaudeInput.timestamp
-              ? React.createElement(
-                  Text,
-                  { color: "gray" },
-                  `  ${lastClaudeInput.timestamp}`
-                )
-              : React.createElement(Text, null, " "),
-            React.createElement(Text, null, " ")
-          )
-        ),
-
-        commits.length > 4 &&
-          React.createElement(
-            Text,
-            { color: "gray" },
-            `Showing ${windowStart + 1}-${Math.min(
-              windowStart + 4,
-              commits.length
-            )} of ${commits.length} commits`
-          )
-      )
-    )
-  );
+  return renderMainView();
 };
 
 // Only render if this file is run directly
