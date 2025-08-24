@@ -25,6 +25,7 @@ const GitCommitHistoryApp = () => {
   const [createVibepointError, setCreateVibepointError] = useState(null);
   const [successAnimatingIndex, setSuccessAnimatingIndex] = useState(-1);
   const [successAnimationProgress, setSuccessAnimationProgress] = useState(0);
+  const [successAnimationPhase, setSuccessAnimationPhase] = useState(1); // 1 = turning green, 2 = turning back to default
   const [options, setOptions] = useState({ audio: true });
   const [optionsSelectedIndex, setOptionsSelectedIndex] = useState(0);
   const { exit } = useApp();
@@ -597,7 +598,7 @@ const GitCommitHistoryApp = () => {
     }
   }, [option1Animating, lastClaudeInput]);
 
-  // Success animation effect for newly created commit on main page
+  // Success animation effect for newly created commit on main page (two phases)
   useEffect(() => {
     if (successAnimatingIndex !== -1) {
       const commitIndex = successAnimatingIndex - 1; // Adjust for "Create vibepoint" offset
@@ -610,20 +611,30 @@ const GitCommitHistoryApp = () => {
           const next = prev + 1;
           if (next >= totalChars) {
             clearInterval(interval);
-            // Reset animation after a delay
-            setTimeout(() => {
-              setSuccessAnimatingIndex(-1);
-              setSuccessAnimationProgress(0);
-            }, 1000); // Show completed animation for 1 second
+            
+            if (successAnimationPhase === 1) {
+              // Phase 1 complete (all green), start phase 2 (back to default)
+              setTimeout(() => {
+                setSuccessAnimationPhase(2);
+                setSuccessAnimationProgress(0);
+              }, 200); // Brief pause when fully green
+            } else {
+              // Phase 2 complete, reset everything
+              setTimeout(() => {
+                setSuccessAnimatingIndex(-1);
+                setSuccessAnimationProgress(0);
+                setSuccessAnimationPhase(1);
+              }, 500); // Brief pause at end
+            }
             return totalChars;
           }
           return next;
         });
-      }, 100); // 100ms per character
+      }, 50); // 50ms per character
 
       return () => clearInterval(interval);
     }
-  }, [successAnimatingIndex, commits]);
+  }, [successAnimatingIndex, successAnimationPhase, commits]);
 
   // Create display items ("Create vibepoint" + commits)
   const displayItems = [
@@ -903,14 +914,24 @@ const GitCommitHistoryApp = () => {
     let completeLine;
 
     if (isSuccessAnimating) {
-      // Apply green success animation
+      // Apply two-phase success animation
       const animatedText = truncatedText
         .split("")
         .map((char, charIndex) => {
-          if (charIndex < successAnimationProgress) {
-            return chalk.green(char); // green
+          if (successAnimationPhase === 1) {
+            // Phase 1: Default → Green (left to right)
+            if (charIndex < successAnimationProgress) {
+              return chalk.green(char); // green
+            } else {
+              return char; // default color
+            }
           } else {
-            return char; // default color
+            // Phase 2: Green → Default (left to right)
+            if (charIndex < successAnimationProgress) {
+              return char; // back to default color
+            } else {
+              return chalk.green(char); // still green
+            }
           }
         })
         .join("");
