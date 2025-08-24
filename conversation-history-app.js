@@ -687,7 +687,22 @@ const GitCommitHistoryApp = () => {
           lastClaudeInput.text.length > 72
             ? lastClaudeInput.text.slice(0, 72)
             : lastClaudeInput.text
+        ),
+      
+      // Blank line
+      React.createElement(Text, null, " "),
+      
+      // Commit count with blue check mark
+      React.createElement(
+        Text,
+        null,
+        `${commits.length} `,
+        React.createElement(
+          Text,
+          { color: "blue" },
+          "✓"
         )
+      )
     );
   };
 
