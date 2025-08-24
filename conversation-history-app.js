@@ -343,8 +343,30 @@ const GitCommitHistoryApp = () => {
       }
 
       if (key.return) {
-        // Placeholder - do nothing for now
         playAnimationSound();
+        // Execute based on currently selected option
+        if (createVibepointSelectedIndex === 0) {
+          // TODO: Navigate to option 1 page (use last user input)
+        } else if (createVibepointSelectedIndex === 1) {
+          // TODO: Navigate to customize page
+        } else if (createVibepointSelectedIndex === 2) {
+          // TODO: Navigate to Claude decide page
+        }
+      }
+
+      // Number key selection and execution
+      if (input === "1") {
+        setCreateVibepointSelectedIndex(0);
+        playAnimationSound();
+        // TODO: Navigate to option 1 page (use last user input)
+      } else if (input === "2") {
+        setCreateVibepointSelectedIndex(1);
+        playAnimationSound();
+        // TODO: Navigate to customize page
+      } else if (input === "3") {
+        setCreateVibepointSelectedIndex(2);
+        playAnimationSound();
+        // TODO: Navigate to Claude decide page
       }
 
       return;
@@ -509,7 +531,19 @@ const GitCommitHistoryApp = () => {
   const availableOptions = [{ key: "audio", label: "Audio", type: "boolean" }];
 
   // Create vibepoint options
-  const createVibepointOptions = ["Option 1", "Option 2", "Option 3"];
+  const getCreateVibepointOptions = () => {
+    const lastInputText = lastClaudeInput && lastClaudeInput.text 
+      ? (lastClaudeInput.text.length > 60 
+          ? lastClaudeInput.text.slice(0, 60) + "..." 
+          : lastClaudeInput.text)
+      : "No recent input found";
+    
+    return [
+      `1 ${lastInputText}`,
+      "2 I'll customize it",
+      "3 Let Claude decide"
+    ];
+  };
 
   // Render undo confirmation view
   const renderUndoConfirmView = () => {
@@ -575,11 +609,11 @@ const GitCommitHistoryApp = () => {
           React.createElement(
             Text,
             { bold: true, color: "magenta" },
-            "Create vibepoint"
+            "What would you like to name your Vibepoint?"
           ),
           React.createElement(Text, null, " "),
 
-          createVibepointOptions.map((option, index) => {
+          getCreateVibepointOptions().map((option, index) => {
             const isSelected = index === createVibepointSelectedIndex;
             const indicator = isSelected ? ">" : " ";
 
@@ -595,7 +629,7 @@ const GitCommitHistoryApp = () => {
           }),
 
           React.createElement(Text, null, " "),
-          React.createElement(Text, { color: "gray" }, "Esc to go back")
+          React.createElement(Text, { color: "gray" }, "Press 1-3 to select • Enter to confirm • Esc to go back")
         )
       )
     );
