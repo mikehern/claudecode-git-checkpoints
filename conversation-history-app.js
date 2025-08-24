@@ -18,6 +18,8 @@ const GitCommitHistoryApp = () => {
   const [showOptions, setShowOptions] = useState(false);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [showClaudeInput, setShowClaudeInput] = useState(false);
+  const [showCreateVibepoint, setShowCreateVibepoint] = useState(false);
+  const [createVibepointSelectedIndex, setCreateVibepointSelectedIndex] = useState(0);
   const [options, setOptions] = useState({ audio: true });
   const [optionsSelectedIndex, setOptionsSelectedIndex] = useState(0);
   const { exit } = useApp();
@@ -121,7 +123,7 @@ const GitCommitHistoryApp = () => {
 
       setCommits(commitList);
 
-      // Reset selection to latest commit (index 0) and reset window
+      // Keep "Create vibepoint" selected (index 0) and reset window
       setSelectedIndex(0);
       setWindowStart(0);
     } catch (error) {
@@ -312,6 +314,42 @@ const GitCommitHistoryApp = () => {
 
   // Handle keyboard input
   useInput((input, key) => {
+    if (showCreateVibepoint) {
+      // Create vibepoint page navigation
+      if (key.escape) {
+        playNextSound();
+        setShowCreateVibepoint(false);
+        return;
+      }
+
+      if (key.upArrow) {
+        setCreateVibepointSelectedIndex((prev) => {
+          const newIndex = Math.max(0, prev - 1);
+          if (newIndex !== prev) {
+            playMenuSound();
+          }
+          return newIndex;
+        });
+      }
+
+      if (key.downArrow) {
+        setCreateVibepointSelectedIndex((prev) => {
+          const newIndex = Math.min(2, prev + 1); // 3 options (0, 1, 2)
+          if (newIndex !== prev) {
+            playMenuSound();
+          }
+          return newIndex;
+        });
+      }
+
+      if (key.return) {
+        // Placeholder - do nothing for now
+        playAnimationSound();
+      }
+
+      return;
+    }
+
     if (showClaudeInput) {
       // Claude input page navigation
       if (key.escape) {
@@ -381,6 +419,16 @@ const GitCommitHistoryApp = () => {
       return;
     }
 
+    if (key.return) {
+      if (selectedIndex === 0) {
+        // Selected "Create vibepoint"
+        playAnimationSound();
+        setShowCreateVibepoint(true);
+        setCreateVibepointSelectedIndex(0);
+        return;
+      }
+    }
+
     if (key.upArrow) {
       setSelectedIndex((prev) => {
         const newIndex = Math.max(0, prev - 1);
@@ -398,7 +446,8 @@ const GitCommitHistoryApp = () => {
 
     if (key.downArrow) {
       setSelectedIndex((prev) => {
-        const newIndex = Math.min(commits.length - 1, prev + 1);
+        const totalItems = commits.length + 1; // +1 for "Create vibepoint"
+        const newIndex = Math.min(totalItems - 1, prev + 1);
         // Only play sound if selection actually changed
         if (newIndex !== prev) {
           playMenuSound();
@@ -412,9 +461,11 @@ const GitCommitHistoryApp = () => {
     }
 
     if (input === "1" && animatingIndex === -1) {
-      playAnimationSound();
-      setAnimatingIndex(selectedIndex);
-      setAnimationProgress(0);
+      if (selectedIndex > 0) { // Don't animate "Create vibepoint"
+        playAnimationSound();
+        setAnimatingIndex(selectedIndex - 1); // Adjust for "Create vibepoint" offset
+        setAnimationProgress(0);
+      }
     }
   });
 
@@ -445,11 +496,20 @@ const GitCommitHistoryApp = () => {
     }
   }, [animatingIndex, commits]);
 
-  // Get visible commits (sliding window)
-  const visibleCommits = commits.slice(windowStart, windowStart + 4);
+  // Create display items ("Create vibepoint" + commits)
+  const displayItems = [
+    { type: 'create', text: 'Create vibepoint', timestamp: '' },
+    ...commits.map(commit => ({ type: 'commit', ...commit }))
+  ];
+
+  // Get visible items (sliding window)
+  const visibleItems = displayItems.slice(windowStart, windowStart + 4);
 
   // Available options
   const availableOptions = [{ key: "audio", label: "Audio", type: "boolean" }];
+
+  // Create vibepoint options
+  const createVibepointOptions = ["Option 1", "Option 2", "Option 3"];
 
   // Render undo confirmation view
   const renderUndoConfirmView = () => {
@@ -496,6 +556,46 @@ const GitCommitHistoryApp = () => {
             "Press 'y' to confirm undo"
           ),
           React.createElement(Text, { color: "gray" }, "Press 'Esc' to cancel")
+        )
+      )
+    );
+  };
+
+  // Render Create vibepoint view
+  const renderCreateVibepointView = () => {
+    return React.createElement(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      React.createElement(
+        Box,
+        { borderStyle: "single", padding: 1 },
+        React.createElement(
+          Box,
+          { flexDirection: "column" },
+          React.createElement(
+            Text,
+            { bold: true, color: "magenta" },
+            "Create vibepoint"
+          ),
+          React.createElement(Text, null, " "),
+
+          createVibepointOptions.map((option, index) => {
+            const isSelected = index === createVibepointSelectedIndex;
+            const indicator = isSelected ? ">" : " ";
+
+            return React.createElement(
+              Box,
+              { key: index, width: "100%" },
+              React.createElement(
+                Text,
+                { color: isSelected ? "yellow" : "white" },
+                `${indicator} ${option}`
+              )
+            );
+          }),
+
+          React.createElement(Text, null, " "),
+          React.createElement(Text, { color: "gray" }, "Esc to go back")
         )
       )
     );
@@ -589,15 +689,33 @@ const GitCommitHistoryApp = () => {
     );
   };
 
-  // Render a single commit item
-  const renderCommit = (commit, index, isSelected) => {
+  // Render a single display item (create vibepoint or commit)
+  const renderDisplayItem = (item, index, isSelected) => {
     const globalIndex = windowStart + index;
-    const isAnimating = globalIndex === animatingIndex;
     const indicator = isSelected ? ">" : " ";
+
+    if (item.type === 'create') {
+      return React.createElement(
+        Box,
+        { key: 'create-vibepoint', width: "100%" },
+        React.createElement(
+          Text,
+          {
+            color: isSelected ? "yellow" : "white",
+            wrap: "truncate",
+          },
+          `${indicator} ${item.text}`
+        )
+      );
+    }
+
+    // Handle regular commit
+    const commitIndex = globalIndex - 1; // Adjust for "Create vibepoint" offset
+    const isAnimating = commitIndex === animatingIndex;
 
     // Truncate text to prevent wrapping issues (leave space for indicator, timestamp)
     const maxTextWidth = 80; // Adjust based on typical terminal width
-    let truncatedText = commit.text;
+    let truncatedText = item.text;
     if (truncatedText.length > maxTextWidth) {
       truncatedText = truncatedText.slice(0, maxTextWidth - 3) + "...";
     }
@@ -617,9 +735,9 @@ const GitCommitHistoryApp = () => {
           }
         })
         .join("");
-      completeLine = `${indicator} ${animatedText} - ${commit.timestamp}`;
+      completeLine = `${indicator} ${animatedText} - ${item.timestamp}`;
     } else {
-      completeLine = `${indicator} ${truncatedText} - ${commit.timestamp}`;
+      completeLine = `${indicator} ${truncatedText} - ${item.timestamp}`;
     }
 
     return React.createElement(
@@ -655,26 +773,29 @@ const GitCommitHistoryApp = () => {
           React.createElement(
             Text,
             { color: "gray" },
-            "Use ↑↓ to navigate • Press 1 to animate • u to undo • v for input • o for options • q/Esc to exit"
+            "Use ↑↓ to navigate • Press Enter to select • Press 1 to animate • u to undo • v for input • o for options • q/Esc to exit"
           ),
           React.createElement(Text, null, " "),
 
-          visibleCommits.length === 0
-            ? React.createElement(Text, { color: "yellow" }, "Loading commits...")
-            : visibleCommits.map((commit, index) =>
-                renderCommit(commit, index, windowStart + index === selectedIndex)
+          visibleItems.length === 0 || (visibleItems.length === 1 && visibleItems[0].type === 'create')
+            ? [
+                renderDisplayItem({ type: 'create', text: 'Create vibepoint' }, 0, selectedIndex === 0),
+                React.createElement(Text, { color: "yellow", key: "loading" }, "Loading commits...")
+              ]
+            : visibleItems.map((item, index) =>
+                renderDisplayItem(item, index, windowStart + index === selectedIndex)
               ),
 
           React.createElement(Text, null, " "),
 
-          commits.length > 4 &&
+          displayItems.length > 4 &&
             React.createElement(
               Text,
               { color: "gray" },
               `Showing ${windowStart + 1}-${Math.min(
                 windowStart + 4,
-                commits.length
-              )} of ${commits.length} commits`
+                displayItems.length
+              )} of ${displayItems.length} items (${commits.length} commits)`
             )
         )
       ),
@@ -705,6 +826,10 @@ const GitCommitHistoryApp = () => {
       )
     );
   };
+
+  if (showCreateVibepoint) {
+    return renderCreateVibepointView();
+  }
 
   if (showClaudeInput) {
     return renderClaudeInputView();
