@@ -25,6 +25,15 @@ const ConversationHistoryApp = () => {
     }
   };
 
+  // Play animation sound
+  const playAnimationSound = () => {
+    try {
+      player.play("sounds/next.wav");
+    } catch (error) {
+      // Silently fail if sound can't be played
+    }
+  };
+
   // Load conversation history
   useEffect(() => {
     try {
@@ -95,6 +104,7 @@ const ConversationHistoryApp = () => {
     }
 
     if (input === "1" && animatingIndex === -1) {
+      playAnimationSound();
       setAnimatingIndex(selectedIndex);
       setAnimationProgress(0);
     }
