@@ -71,41 +71,67 @@ const GitCommitHistoryApp = () => {
   };
 
   // Load commit history
-  useEffect(() => {
-    const loadCommits = async () => {
-      try {
-        const git = simpleGit(process.cwd());
-        const log = await git.log();
-        
-        const commitList = log.all.map((commit) => {
-          const date = new Date(commit.date);
-          const formattedDate = date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric', 
-            year: 'numeric'
-          });
-          const formattedTime = date.toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-          });
-          
-          return {
-            text: commit.message || 'No commit message',
-            timestamp: `${formattedDate} at ${formattedTime}`,
-          };
+  const loadCommits = async () => {
+    try {
+      const git = simpleGit(process.cwd());
+      const log = await git.log();
+      
+      const commitList = log.all.map((commit) => {
+        const date = new Date(commit.date);
+        const formattedDate = date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric', 
+          year: 'numeric'
+        });
+        const formattedTime = date.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
         });
         
-        setCommits(commitList);
-      } catch (error) {
-        console.error("Failed to load commit history:", error.message);
-        setCommits([
-          { text: "Error loading commits", timestamp: "Unknown" },
-        ]);
+        return {
+          text: commit.message || 'No commit message',
+          timestamp: `${formattedDate} at ${formattedTime}`,
+        };
+      });
+      
+      setCommits(commitList);
+    } catch (error) {
+      console.error("Failed to load commit history:", error.message);
+      setCommits([
+        { text: "Error loading commits", timestamp: "Unknown" },
+      ]);
+    }
+  };
+
+  useEffect(() => {
+    // Initial load
+    loadCommits();
+    
+    // Watch for Git changes
+    const gitLogPath = path.join(process.cwd(), '.git', 'logs', 'HEAD');
+    let watcher = null;
+    
+    try {
+      if (fs.existsSync(gitLogPath)) {
+        watcher = fs.watch(gitLogPath, (eventType) => {
+          if (eventType === 'change') {
+            loadCommits();
+          }
+        });
+      } else {
+        console.warn("Git log file not found - auto-refresh disabled");
+      }
+    } catch (error) {
+      console.warn("Failed to setup Git file watching:", error.message);
+    }
+    
+    // Cleanup watcher on unmount
+    return () => {
+      if (watcher) {
+        watcher.close();
       }
     };
-    
-    loadCommits();
   }, []);
 
   // Handle keyboard input
