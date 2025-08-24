@@ -30,7 +30,7 @@ const GitCommitHistoryApp = () => {
   const loadOptions = () => {
     try {
       if (fs.existsSync(optionsPath)) {
-        const data = fs.readFileSync(optionsPath, 'utf8');
+        const data = fs.readFileSync(optionsPath, "utf8");
         return JSON.parse(data);
       }
     } catch (error) {
@@ -98,36 +98,34 @@ const GitCommitHistoryApp = () => {
     try {
       const git = simpleGit(process.cwd());
       const log = await git.log();
-      
+
       const commitList = log.all.map((commit) => {
         const date = new Date(commit.date);
-        const formattedDate = date.toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric', 
-          year: 'numeric'
+        const formattedDate = date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
         });
-        const formattedTime = date.toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true
+        const formattedTime = date.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
         });
-        
+
         return {
-          text: commit.message || 'No commit message',
+          text: commit.message || "No commit message",
           timestamp: `${formattedDate} at ${formattedTime}`,
         };
       });
-      
+
       setCommits(commitList);
-      
+
       // Reset selection to latest commit (index 0) and reset window
       setSelectedIndex(0);
       setWindowStart(0);
     } catch (error) {
       console.error("Failed to load commit history:", error.message);
-      setCommits([
-        { text: "Error loading commits", timestamp: "Unknown" },
-      ]);
+      setCommits([{ text: "Error loading commits", timestamp: "Unknown" }]);
     }
   };
 
@@ -135,7 +133,7 @@ const GitCommitHistoryApp = () => {
   const undoLastCommit = async () => {
     try {
       const git = simpleGit(process.cwd());
-      await git.reset(['--hard', 'HEAD~1']);
+      await git.reset(["--hard", "HEAD~1"]);
       loadCommits(); // Refresh the commit list
     } catch (error) {
       console.error("Failed to undo commit:", error.message);
@@ -146,60 +144,73 @@ const GitCommitHistoryApp = () => {
   const loadLastClaudeInput = () => {
     try {
       const currentDir = process.cwd();
-      const claudeProjectPath = path.join(os.homedir(), '.claude', 'projects', `${currentDir.replace(/\//g, '-')}`);
-      
+      const claudeProjectPath = path.join(
+        os.homedir(),
+        ".claude",
+        "projects",
+        `${currentDir.replace(/\//g, "-")}`
+      );
+
       if (!fs.existsSync(claudeProjectPath)) {
-        setLastClaudeInput({ text: "No Claude Code history found", timestamp: "" });
+        setLastClaudeInput({
+          text: "No Claude Code history found",
+          timestamp: "",
+        });
         return;
       }
 
       const files = fs.readdirSync(claudeProjectPath);
-      const jsonlFiles = files.filter(file => file.endsWith('.jsonl'));
-      
+      const jsonlFiles = files.filter((file) => file.endsWith(".jsonl"));
+
       if (jsonlFiles.length === 0) {
-        setLastClaudeInput({ text: "No conversation files found", timestamp: "" });
+        setLastClaudeInput({
+          text: "No conversation files found",
+          timestamp: "",
+        });
         return;
       }
 
       // Collect all user inputs from all conversation files
       const allUserInputs = [];
-      
+
       for (const file of jsonlFiles) {
         const filePath = path.join(claudeProjectPath, file);
         try {
-          const content = fs.readFileSync(filePath, 'utf8');
-          const lines = content.split('\n').filter(line => line.trim());
-          
+          const content = fs.readFileSync(filePath, "utf8");
+          const lines = content.split("\n").filter((line) => line.trim());
+
           for (const line of lines) {
             try {
               const message = JSON.parse(line);
-              
+
               // Filter for actual user input messages (same logic as original script)
-              if (message.type === 'user' && 
-                  message.message && 
-                  message.message.content &&
-                  !message.isMeta &&
-                  !message.message.content.startsWith('Caveat:') &&
-                  !message.message.content.includes('<command-name>') &&
-                  !message.message.content.includes('<local-command-stdout>') &&
-                  message.message.content !== '[Request interrupted by user for tool use]') {
-                
+              if (
+                message.type === "user" &&
+                message.message &&
+                message.message.content &&
+                !message.isMeta &&
+                !message.message.content.startsWith("Caveat:") &&
+                !message.message.content.includes("<command-name>") &&
+                !message.message.content.includes("<local-command-stdout>") &&
+                message.message.content !==
+                  "[Request interrupted by user for tool use]"
+              ) {
                 const utcDate = new Date(message.timestamp);
-                const formattedDate = utcDate.toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric'
+                const formattedDate = utcDate.toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
                 });
-                const formattedTime = utcDate.toLocaleTimeString('en-US', {
-                  hour: 'numeric',
-                  minute: '2-digit',
-                  hour12: true
+                const formattedTime = utcDate.toLocaleTimeString("en-US", {
+                  hour: "numeric",
+                  minute: "2-digit",
+                  hour12: true,
                 });
-                
+
                 allUserInputs.push({
                   text: message.message.content,
                   timestamp: `${formattedDate} at ${formattedTime}`,
-                  rawTimestamp: utcDate
+                  rawTimestamp: utcDate,
                 });
               }
             } catch (parseError) {
@@ -212,23 +223,25 @@ const GitCommitHistoryApp = () => {
           continue;
         }
       }
-      
+
       // Sort by timestamp and get the last input
       allUserInputs.sort((a, b) => a.rawTimestamp - b.rawTimestamp);
-      
+
       if (allUserInputs.length > 0) {
         const lastInput = allUserInputs[allUserInputs.length - 1];
         setLastClaudeInput({
           text: lastInput.text,
-          timestamp: lastInput.timestamp
+          timestamp: lastInput.timestamp,
         });
       } else {
         setLastClaudeInput({ text: "No user inputs found", timestamp: "" });
       }
-      
     } catch (error) {
       console.error("Failed to load Claude Code history:", error.message);
-      setLastClaudeInput({ text: "Error loading Claude history", timestamp: "" });
+      setLastClaudeInput({
+        text: "Error loading Claude history",
+        timestamp: "",
+      });
     }
   };
 
@@ -236,15 +249,15 @@ const GitCommitHistoryApp = () => {
     // Initial load
     loadCommits();
     loadLastClaudeInput();
-    
+
     // Watch for Git changes
-    const gitLogPath = path.join(process.cwd(), '.git', 'logs', 'HEAD');
+    const gitLogPath = path.join(process.cwd(), ".git", "logs", "HEAD");
     let gitWatcher = null;
-    
+
     try {
       if (fs.existsSync(gitLogPath)) {
         gitWatcher = fs.watch(gitLogPath, (eventType) => {
-          if (eventType === 'change') {
+          if (eventType === "change") {
             loadCommits();
           }
         });
@@ -254,26 +267,37 @@ const GitCommitHistoryApp = () => {
     } catch (error) {
       console.warn("Failed to setup Git file watching:", error.message);
     }
-    
+
     // Watch for Claude Code conversation changes
     const currentDir = process.cwd();
-    const claudeProjectPath = path.join(os.homedir(), '.claude', 'projects', `${currentDir.replace(/\//g, '-')}`);
+    const claudeProjectPath = path.join(
+      os.homedir(),
+      ".claude",
+      "projects",
+      `${currentDir.replace(/\//g, "-")}`
+    );
     let claudeWatcher = null;
-    
+
     try {
       if (fs.existsSync(claudeProjectPath)) {
         claudeWatcher = fs.watch(claudeProjectPath, (eventType, filename) => {
-          if (eventType === 'change' && filename && filename.endsWith('.jsonl')) {
+          if (
+            eventType === "change" &&
+            filename &&
+            filename.endsWith(".jsonl")
+          ) {
             loadLastClaudeInput();
           }
         });
       } else {
-        console.warn("Claude Code project directory not found - Claude history auto-refresh disabled");
+        console.warn(
+          "Claude Code project directory not found - Claude history auto-refresh disabled"
+        );
       }
     } catch (error) {
       console.warn("Failed to setup Claude Code file watching:", error.message);
     }
-    
+
     // Cleanup watchers on unmount
     return () => {
       if (gitWatcher) {
@@ -294,14 +318,14 @@ const GitCommitHistoryApp = () => {
         setShowUndoConfirm(false);
         return;
       }
-      
+
       if (input === "y") {
         playRevertSound();
         setShowUndoConfirm(false);
         undoLastCommit();
         return;
       }
-      
+
       return;
     }
 
@@ -311,15 +335,16 @@ const GitCommitHistoryApp = () => {
         setShowOptions(false);
         return;
       }
-      
+
       if (key.leftArrow || key.rightArrow) {
-        if (optionsSelectedIndex === 0) { // Audio option
+        if (optionsSelectedIndex === 0) {
+          // Audio option
           const newOptions = { ...options, audio: !options.audio };
           setOptions(newOptions);
           saveOptions(newOptions);
         }
       }
-      
+
       return;
     }
 
@@ -404,20 +429,15 @@ const GitCommitHistoryApp = () => {
   }, [animatingIndex, commits]);
 
   // Get visible commits (sliding window)
-  const visibleCommits = commits.slice(
-    windowStart,
-    windowStart + 4
-  );
+  const visibleCommits = commits.slice(windowStart, windowStart + 4);
 
   // Available options
-  const availableOptions = [
-    { key: 'audio', label: 'Audio', type: 'boolean' }
-  ];
+  const availableOptions = [{ key: "audio", label: "Audio", type: "boolean" }];
 
   // Render undo confirmation view
   const renderUndoConfirmView = () => {
     const currentCommit = commits.length > 0 ? commits[0] : null;
-    
+
     return React.createElement(
       Box,
       { flexDirection: "column", padding: 1 },
@@ -434,42 +454,31 @@ const GitCommitHistoryApp = () => {
           ),
           React.createElement(Text, null, " "),
           React.createElement(Text, null, " "),
-          
-          React.createElement(
-            Text,
-            null,
-            "You are about to undo:"
-          ),
-          currentCommit && React.createElement(
-            Text,
-            { color: "yellow" },
-            `> ${currentCommit.text} - ${currentCommit.timestamp}`
-          ),
+
+          React.createElement(Text, null, "You are about to undo:"),
+          currentCommit &&
+            React.createElement(
+              Text,
+              { color: "yellow" },
+              `> ${currentCommit.text} - ${currentCommit.timestamp}`
+            ),
           React.createElement(Text, null, " "),
-          
+
           React.createElement(
             Text,
             null,
             "This will permanently undo the last checkpoint AND all other changes"
           ),
-          React.createElement(
-            Text,
-            null,
-            "that happened after it."
-          ),
+          React.createElement(Text, null, "that happened after it."),
           React.createElement(Text, null, " "),
           React.createElement(Text, null, " "),
-          
+
           React.createElement(
             Text,
             { color: "green" },
             "Press 'y' to confirm undo"
           ),
-          React.createElement(
-            Text,
-            { color: "gray" },
-            "Press 'Esc' to cancel"
-          )
+          React.createElement(Text, { color: "gray" }, "Press 'Esc' to cancel")
         )
       )
     );
@@ -492,13 +501,13 @@ const GitCommitHistoryApp = () => {
             "Options"
           ),
           React.createElement(Text, null, " "),
-          
+
           availableOptions.map((option, index) => {
             const isSelected = index === optionsSelectedIndex;
             const value = options[option.key];
             const displayValue = value ? "Yes" : "No";
             const indicator = isSelected ? ">" : " ";
-            
+
             return React.createElement(
               Box,
               { key: option.key, width: "100%" },
@@ -509,13 +518,9 @@ const GitCommitHistoryApp = () => {
               )
             );
           }),
-          
+
           React.createElement(Text, null, " "),
-          React.createElement(
-            Text,
-            { color: "gray" },
-            "Esc to exit"
-          )
+          React.createElement(Text, { color: "gray" }, "Esc to exit")
         )
       )
     );
@@ -598,17 +603,9 @@ const GitCommitHistoryApp = () => {
         React.createElement(Text, null, " "),
 
         visibleCommits.length === 0
-          ? React.createElement(
-              Text,
-              { color: "yellow" },
-              "Loading commits..."
-            )
+          ? React.createElement(Text, { color: "yellow" }, "Loading commits...")
           : visibleCommits.map((commit, index) =>
-              renderCommit(
-                commit,
-                index,
-                windowStart + index === selectedIndex
-              )
+              renderCommit(commit, index, windowStart + index === selectedIndex)
             ),
 
         React.createElement(Text, null, " "),
@@ -625,20 +622,24 @@ const GitCommitHistoryApp = () => {
               { bold: true, color: "cyan" },
               "Last Claude Code Input:"
             ),
-            lastClaudeInput ? React.createElement(
-              Text,
-              { color: "yellow" },
-              `> ${lastClaudeInput.text.length > 68 ? lastClaudeInput.text.slice(0, 65) + "..." : lastClaudeInput.text}`
-            ) : React.createElement(
-              Text,
-              { color: "gray" },
-              "> Loading..."
-            ),
-            lastClaudeInput && lastClaudeInput.timestamp ? React.createElement(
-              Text,
-              { color: "gray" },
-              `  ${lastClaudeInput.timestamp}`
-            ) : React.createElement(Text, null, " "),
+            lastClaudeInput
+              ? React.createElement(
+                  Text,
+                  { color: "red" },
+                  `> ${
+                    lastClaudeInput.text.length > 68
+                      ? lastClaudeInput.text.slice(0, 65) + "..."
+                      : lastClaudeInput.text
+                  }`
+                )
+              : React.createElement(Text, { color: "gray" }, "> Loading..."),
+            lastClaudeInput && lastClaudeInput.timestamp
+              ? React.createElement(
+                  Text,
+                  { color: "gray" },
+                  `  ${lastClaudeInput.timestamp}`
+                )
+              : React.createElement(Text, null, " "),
             React.createElement(Text, null, " ")
           )
         ),
