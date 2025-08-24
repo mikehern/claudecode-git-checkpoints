@@ -2,13 +2,13 @@
 import React, { useState, useEffect } from "react";
 import { render, Text, Box, useInput, useApp } from "ink";
 import chalk from "chalk";
-import { execSync } from "child_process";
+import simpleGit from "simple-git";
 import sound from "play-sound";
 import fs from "fs";
 import path from "path";
 
-const ConversationHistoryApp = () => {
-  const [conversations, setConversations] = useState([]);
+const GitCommitHistoryApp = () => {
+  const [commits, setCommits] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [animatingIndex, setAnimatingIndex] = useState(-1);
   const [animationProgress, setAnimationProgress] = useState(0);
@@ -70,36 +70,42 @@ const ConversationHistoryApp = () => {
     }
   };
 
-  // Load conversation history
+  // Load commit history
   useEffect(() => {
-    try {
-      const output = execSync("node current-project-clean-history.js", {
-        encoding: "utf8",
-        cwd: process.cwd(),
-      });
-
-      // Parse the conversations from the script output
-      const lines = output.split("\n");
-      const conversationLines = lines
-        .filter((line) => line.startsWith("• **") && line.includes("** - "))
-        .map((line) => {
-          const match = line.match(/• \*\*(.*?)\*\* - (.+)/);
-          return match
-            ? {
-                text: match[1],
-                timestamp: match[2],
-              }
-            : null;
-        })
-        .filter(Boolean);
-
-      setConversations(conversationLines);
-    } catch (error) {
-      console.error("Failed to load conversation history:", error.message);
-      setConversations([
-        { text: "Error loading conversations", timestamp: "Unknown" },
-      ]);
-    }
+    const loadCommits = async () => {
+      try {
+        const git = simpleGit(process.cwd());
+        const log = await git.log();
+        
+        const commitList = log.all.map((commit) => {
+          const date = new Date(commit.date);
+          const formattedDate = date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric', 
+            year: 'numeric'
+          });
+          const formattedTime = date.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+          });
+          
+          return {
+            text: commit.message || 'No commit message',
+            timestamp: `${formattedDate} at ${formattedTime}`,
+          };
+        });
+        
+        setCommits(commitList);
+      } catch (error) {
+        console.error("Failed to load commit history:", error.message);
+        setCommits([
+          { text: "Error loading commits", timestamp: "Unknown" },
+        ]);
+      }
+    };
+    
+    loadCommits();
   }, []);
 
   // Handle keyboard input
@@ -150,7 +156,7 @@ const ConversationHistoryApp = () => {
 
     if (key.downArrow) {
       setSelectedIndex((prev) => {
-        const newIndex = Math.min(conversations.length - 1, prev + 1);
+        const newIndex = Math.min(commits.length - 1, prev + 1);
         // Only play sound if selection actually changed
         if (newIndex !== prev) {
           playMenuSound();
@@ -173,10 +179,10 @@ const ConversationHistoryApp = () => {
   // Animation effect
   useEffect(() => {
     if (animatingIndex !== -1) {
-      const conversation = conversations[animatingIndex];
-      if (!conversation) return;
+      const commit = commits[animatingIndex];
+      if (!commit) return;
 
-      const totalChars = conversation.text.length;
+      const totalChars = commit.text.length;
       const interval = setInterval(() => {
         setAnimationProgress((prev) => {
           const next = prev + 1;
@@ -195,10 +201,10 @@ const ConversationHistoryApp = () => {
 
       return () => clearInterval(interval);
     }
-  }, [animatingIndex, conversations]);
+  }, [animatingIndex, commits]);
 
-  // Get visible conversations (sliding window)
-  const visibleConversations = conversations.slice(
+  // Get visible commits (sliding window)
+  const visibleCommits = commits.slice(
     windowStart,
     windowStart + 4
   );
@@ -254,15 +260,15 @@ const ConversationHistoryApp = () => {
     );
   };
 
-  // Render a single conversation item
-  const renderConversation = (conversation, index, isSelected) => {
+  // Render a single commit item
+  const renderCommit = (commit, index, isSelected) => {
     const globalIndex = windowStart + index;
     const isAnimating = globalIndex === animatingIndex;
     const indicator = isSelected ? ">" : " ";
 
     // Truncate text to prevent wrapping issues (leave space for indicator, timestamp)
     const maxTextWidth = 80; // Adjust based on typical terminal width
-    let truncatedText = conversation.text;
+    let truncatedText = commit.text;
     if (truncatedText.length > maxTextWidth) {
       truncatedText = truncatedText.slice(0, maxTextWidth - 3) + "...";
     }
@@ -282,9 +288,9 @@ const ConversationHistoryApp = () => {
           }
         })
         .join("");
-      completeLine = `${indicator} ${animatedText} - ${conversation.timestamp}`;
+      completeLine = `${indicator} ${animatedText} - ${commit.timestamp}`;
     } else {
-      completeLine = `${indicator} ${truncatedText} - ${conversation.timestamp}`;
+      completeLine = `${indicator} ${truncatedText} - ${commit.timestamp}`;
     }
 
     return React.createElement(
@@ -317,7 +323,7 @@ const ConversationHistoryApp = () => {
         React.createElement(
           Text,
           { bold: true, color: "magenta" },
-          "Conversation History"
+          "Git Commit History"
         ),
         React.createElement(
           Text,
@@ -326,28 +332,28 @@ const ConversationHistoryApp = () => {
         ),
         React.createElement(Text, null, " "),
 
-        visibleConversations.length === 0
+        visibleCommits.length === 0
           ? React.createElement(
               Text,
               { color: "yellow" },
-              "Loading conversations..."
+              "Loading commits..."
             )
-          : visibleConversations.map((conversation, index) =>
-              renderConversation(
-                conversation,
+          : visibleCommits.map((commit, index) =>
+              renderCommit(
+                commit,
                 index,
                 windowStart + index === selectedIndex
               )
             ),
 
-        conversations.length > 4 &&
+        commits.length > 4 &&
           React.createElement(
             Text,
             { color: "gray" },
             `Showing ${windowStart + 1}-${Math.min(
               windowStart + 4,
-              conversations.length
-            )} of ${conversations.length} conversations`
+              commits.length
+            )} of ${commits.length} commits`
           )
       )
     )
@@ -356,7 +362,7 @@ const ConversationHistoryApp = () => {
 
 // Only render if this file is run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  render(React.createElement(ConversationHistoryApp));
+  render(React.createElement(GitCommitHistoryApp));
 }
 
-export default ConversationHistoryApp;
+export default GitCommitHistoryApp;
