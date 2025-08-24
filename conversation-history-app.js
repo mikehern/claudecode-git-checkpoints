@@ -4,6 +4,8 @@ import { render, Text, Box, useInput, useApp } from "ink";
 import chalk from "chalk";
 import { execSync } from "child_process";
 import sound from "play-sound";
+import fs from "fs";
+import path from "path";
 
 const ConversationHistoryApp = () => {
   const [conversations, setConversations] = useState([]);
@@ -11,13 +13,46 @@ const ConversationHistoryApp = () => {
   const [animatingIndex, setAnimatingIndex] = useState(-1);
   const [animationProgress, setAnimationProgress] = useState(0);
   const [windowStart, setWindowStart] = useState(0);
+  const [showOptions, setShowOptions] = useState(false);
+  const [options, setOptions] = useState({ audio: true });
+  const [optionsSelectedIndex, setOptionsSelectedIndex] = useState(0);
   const { exit } = useApp();
+
+  const optionsPath = path.join(process.cwd(), "options.json");
 
   // Initialize sound player
   const player = sound();
 
+  // Load options from file
+  const loadOptions = () => {
+    try {
+      if (fs.existsSync(optionsPath)) {
+        const data = fs.readFileSync(optionsPath, 'utf8');
+        return JSON.parse(data);
+      }
+    } catch (error) {
+      // Use defaults on error
+    }
+    return { audio: true };
+  };
+
+  // Save options to file
+  const saveOptions = (newOptions) => {
+    try {
+      fs.writeFileSync(optionsPath, JSON.stringify(newOptions, null, 2));
+    } catch (error) {
+      // Silently fail if can't save
+    }
+  };
+
+  // Load options on mount
+  useEffect(() => {
+    setOptions(loadOptions());
+  }, []);
+
   // Play menu move sound
   const playMenuSound = () => {
+    if (!options.audio) return;
     try {
       player.play("sounds/menu-move.wav");
     } catch (error) {
@@ -27,6 +62,7 @@ const ConversationHistoryApp = () => {
 
   // Play animation sound
   const playAnimationSound = () => {
+    if (!options.audio) return;
     try {
       player.play("sounds/next.wav");
     } catch (error) {
@@ -68,8 +104,32 @@ const ConversationHistoryApp = () => {
 
   // Handle keyboard input
   useInput((input, key) => {
+    if (showOptions) {
+      // Options page navigation
+      if (key.escape) {
+        setShowOptions(false);
+        return;
+      }
+      
+      if (key.leftArrow || key.rightArrow) {
+        if (optionsSelectedIndex === 0) { // Audio option
+          const newOptions = { ...options, audio: !options.audio };
+          setOptions(newOptions);
+          saveOptions(newOptions);
+        }
+      }
+      
+      return;
+    }
+
+    // Main page navigation
     if (input === "q" || key.escape) {
       exit();
+      return;
+    }
+
+    if (input === "o") {
+      setShowOptions(true);
       return;
     }
 
@@ -143,6 +203,57 @@ const ConversationHistoryApp = () => {
     windowStart + 4
   );
 
+  // Available options
+  const availableOptions = [
+    { key: 'audio', label: 'Audio', type: 'boolean' }
+  ];
+
+  // Render options view
+  const renderOptionsView = () => {
+    return React.createElement(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      React.createElement(
+        Box,
+        { borderStyle: "single", padding: 1 },
+        React.createElement(
+          Box,
+          { flexDirection: "column" },
+          React.createElement(
+            Text,
+            { bold: true, color: "magenta" },
+            "Options"
+          ),
+          React.createElement(Text, null, " "),
+          
+          availableOptions.map((option, index) => {
+            const isSelected = index === optionsSelectedIndex;
+            const value = options[option.key];
+            const displayValue = value ? "Yes" : "No";
+            const indicator = isSelected ? ">" : " ";
+            
+            return React.createElement(
+              Box,
+              { key: option.key, width: "100%" },
+              React.createElement(
+                Text,
+                { color: isSelected ? "yellow" : "white" },
+                `${indicator} ${option.label}                    ${displayValue}`
+              )
+            );
+          }),
+          
+          React.createElement(Text, null, " "),
+          React.createElement(
+            Text,
+            { color: "gray" },
+            "Esc to exit"
+          )
+        )
+      )
+    );
+  };
+
   // Render a single conversation item
   const renderConversation = (conversation, index, isSelected) => {
     const globalIndex = windowStart + index;
@@ -190,6 +301,10 @@ const ConversationHistoryApp = () => {
     );
   };
 
+  if (showOptions) {
+    return renderOptionsView();
+  }
+
   return React.createElement(
     Box,
     { flexDirection: "column", padding: 1 },
@@ -207,7 +322,7 @@ const ConversationHistoryApp = () => {
         React.createElement(
           Text,
           { color: "gray" },
-          "Use ↑↓ to navigate • Press 1 to animate • q/Esc to exit"
+          "Use ↑↓ to navigate • Press 1 to animate • o for options • q/Esc to exit"
         ),
         React.createElement(Text, null, " "),
 
