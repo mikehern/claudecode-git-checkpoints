@@ -23,6 +23,8 @@ const GitCommitHistoryApp = () => {
   const [option1Animating, setOption1Animating] = useState(false);
   const [option1AnimationProgress, setOption1AnimationProgress] = useState(0);
   const [createVibepointError, setCreateVibepointError] = useState(null);
+  const [successAnimatingIndex, setSuccessAnimatingIndex] = useState(-1);
+  const [successAnimationProgress, setSuccessAnimationProgress] = useState(0);
   const [options, setOptions] = useState({ audio: true });
   const [optionsSelectedIndex, setOptionsSelectedIndex] = useState(0);
   const { exit } = useApp();
@@ -157,6 +159,10 @@ const GitCommitHistoryApp = () => {
       setShowCreateVibepoint(false);
       setOption1Animating(false);
       setOption1AnimationProgress(0);
+      
+      // Start success animation for the newly created commit (index 1 because "Create vibepoint" is at 0)
+      setSuccessAnimatingIndex(1);
+      setSuccessAnimationProgress(0);
       
     } catch (error) {
       console.error("Failed to create vibepoint:", error.message);
@@ -591,6 +597,34 @@ const GitCommitHistoryApp = () => {
     }
   }, [option1Animating, lastClaudeInput]);
 
+  // Success animation effect for newly created commit on main page
+  useEffect(() => {
+    if (successAnimatingIndex !== -1) {
+      const commitIndex = successAnimatingIndex - 1; // Adjust for "Create vibepoint" offset
+      const commit = commits[commitIndex];
+      if (!commit) return;
+
+      const totalChars = commit.text.length;
+      const interval = setInterval(() => {
+        setSuccessAnimationProgress((prev) => {
+          const next = prev + 1;
+          if (next >= totalChars) {
+            clearInterval(interval);
+            // Reset animation after a delay
+            setTimeout(() => {
+              setSuccessAnimatingIndex(-1);
+              setSuccessAnimationProgress(0);
+            }, 1000); // Show completed animation for 1 second
+            return totalChars;
+          }
+          return next;
+        });
+      }, 100); // 100ms per character
+
+      return () => clearInterval(interval);
+    }
+  }, [successAnimatingIndex, commits]);
+
   // Create display items ("Create vibepoint" + commits)
   const displayItems = [
     { type: 'create', text: 'Create vibepoint', timestamp: '' },
@@ -856,6 +890,7 @@ const GitCommitHistoryApp = () => {
     // Handle regular commit
     const commitIndex = globalIndex - 1; // Adjust for "Create vibepoint" offset
     const isAnimating = commitIndex === animatingIndex;
+    const isSuccessAnimating = globalIndex === successAnimatingIndex;
 
     // Truncate text to prevent wrapping issues (leave space for indicator, timestamp)
     const maxTextWidth = 80; // Adjust based on typical terminal width
@@ -867,7 +902,20 @@ const GitCommitHistoryApp = () => {
     // Build the complete line as a single string to avoid layout issues
     let completeLine;
 
-    if (isAnimating) {
+    if (isSuccessAnimating) {
+      // Apply green success animation
+      const animatedText = truncatedText
+        .split("")
+        .map((char, charIndex) => {
+          if (charIndex < successAnimationProgress) {
+            return chalk.green(char); // green
+          } else {
+            return char; // default color
+          }
+        })
+        .join("");
+      completeLine = `${indicator} ${animatedText} - ${item.timestamp}`;
+    } else if (isAnimating) {
       // Apply blue to teal animation only to the main text
       const animatedText = truncatedText
         .split("")
