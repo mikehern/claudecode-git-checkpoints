@@ -117,6 +117,10 @@ const GitCommitHistoryApp = () => {
       });
       
       setCommits(commitList);
+      
+      // Reset selection to latest commit (index 0) and reset window
+      setSelectedIndex(0);
+      setWindowStart(0);
     } catch (error) {
       console.error("Failed to load commit history:", error.message);
       setCommits([
