@@ -20,8 +20,6 @@ const GitCommitHistoryApp = () => {
   const [showClaudeInput, setShowClaudeInput] = useState(false);
   const [showCreateVibepoint, setShowCreateVibepoint] = useState(false);
   const [createVibepointSelectedIndex, setCreateVibepointSelectedIndex] = useState(0);
-  const [option1Animating, setOption1Animating] = useState(false);
-  const [option1AnimationProgress, setOption1AnimationProgress] = useState(0);
   const [createVibepointError, setCreateVibepointError] = useState(null);
   const [successAnimatingIndex, setSuccessAnimatingIndex] = useState(-1);
   const [successAnimationProgress, setSuccessAnimationProgress] = useState(0);
@@ -158,8 +156,6 @@ const GitCommitHistoryApp = () => {
       // Refresh the commit list and return to main page
       loadCommits();
       setShowCreateVibepoint(false);
-      setOption1Animating(false);
-      setOption1AnimationProgress(0);
       
       // Start success animation for the newly created commit (index 1 because "Create vibepoint" is at 0)
       setSuccessAnimatingIndex(1);
@@ -168,8 +164,6 @@ const GitCommitHistoryApp = () => {
     } catch (error) {
       console.error("Failed to create vibepoint:", error.message);
       setCreateVibepointError(`Error: ${error.message}`);
-      setOption1Animating(false);
-      setOption1AnimationProgress(0);
     }
   };
 
@@ -361,13 +355,6 @@ const GitCommitHistoryApp = () => {
         playNextSound();
         setShowCreateVibepoint(false);
         setCreateVibepointError(null);
-        setOption1Animating(false);
-        setOption1AnimationProgress(0);
-        return;
-      }
-      
-      // Prevent navigation while animating
-      if (option1Animating) {
         return;
       }
 
@@ -395,10 +382,9 @@ const GitCommitHistoryApp = () => {
         playAnimationSound();
         // Execute based on currently selected option
         if (createVibepointSelectedIndex === 0) {
-          // Start Option 1 animation and git operations
+          // Execute Option 1 git operations directly
           setCreateVibepointError(null);
-          setOption1Animating(true);
-          setOption1AnimationProgress(0);
+          createVibepointWithLastInput();
         } else if (createVibepointSelectedIndex === 1) {
           // TODO: Navigate to customize page
         } else if (createVibepointSelectedIndex === 2) {
@@ -410,10 +396,9 @@ const GitCommitHistoryApp = () => {
       if (input === "1") {
         setCreateVibepointSelectedIndex(0);
         playAnimationSound();
-        // Start Option 1 animation and git operations
+        // Execute Option 1 git operations directly
         setCreateVibepointError(null);
-        setOption1Animating(true);
-        setOption1AnimationProgress(0);
+        createVibepointWithLastInput();
       } else if (input === "2") {
         setCreateVibepointSelectedIndex(1);
         playAnimationSound();
@@ -573,30 +558,6 @@ const GitCommitHistoryApp = () => {
     }
   }, [animatingIndex, commits]);
 
-  // Animation effect for Option 1 in Create Vibepoint page
-  useEffect(() => {
-    if (option1Animating) {
-      const option1Text = lastClaudeInput && lastClaudeInput.text 
-        ? lastClaudeInput.text 
-        : "No recent input found";
-      const totalChars = option1Text.length;
-      
-      const interval = setInterval(() => {
-        setOption1AnimationProgress((prev) => {
-          const next = prev + 1;
-          if (next >= totalChars) {
-            clearInterval(interval);
-            // After animation completes, execute git operations
-            createVibepointWithLastInput();
-            return totalChars;
-          }
-          return next;
-        });
-      }, 10); // 10ms per character
-
-      return () => clearInterval(interval);
-    }
-  }, [option1Animating, lastClaudeInput]);
 
   // Success animation effect for newly created commit on main page (two phases)
   useEffect(() => {
@@ -734,35 +695,6 @@ const GitCommitHistoryApp = () => {
           getCreateVibepointOptions().map((option, index) => {
             const isSelected = index === createVibepointSelectedIndex;
             const indicator = isSelected ? ">" : " ";
-            
-            // Special handling for Option 1 animation
-            if (index === 0 && option1Animating) {
-              const baseText = "1 ";
-              const animatedText = lastClaudeInput && lastClaudeInput.text 
-                ? lastClaudeInput.text 
-                : "No recent input found";
-              
-              let displayText;
-              if (option1AnimationProgress < animatedText.length) {
-                // Show animated portion in green, rest in default color
-                const animatedPortion = animatedText.slice(0, option1AnimationProgress);
-                const remainingPortion = animatedText.slice(option1AnimationProgress);
-                displayText = `${indicator} ${baseText}${chalk.green(animatedPortion)}${remainingPortion}`;
-              } else {
-                // Animation complete - show all in green
-                displayText = `${indicator} ${baseText}${chalk.green(animatedText)}`;
-              }
-              
-              return React.createElement(
-                Box,
-                { key: index, width: "100%" },
-                React.createElement(
-                  Text,
-                  { color: isSelected ? "yellow" : "white", wrap: "truncate" },
-                  displayText
-                )
-              );
-            }
 
             return React.createElement(
               Box,
