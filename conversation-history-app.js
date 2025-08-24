@@ -14,6 +14,7 @@ const GitCommitHistoryApp = () => {
   const [animationProgress, setAnimationProgress] = useState(0);
   const [windowStart, setWindowStart] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
+  const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [options, setOptions] = useState({ audio: true });
   const [optionsSelectedIndex, setOptionsSelectedIndex] = useState(0);
   const { exit } = useApp();
@@ -70,6 +71,26 @@ const GitCommitHistoryApp = () => {
     }
   };
 
+  // Play revert sound
+  const playRevertSound = () => {
+    if (!options.audio) return;
+    try {
+      player.play("sounds/revert.wav");
+    } catch (error) {
+      // Silently fail if sound can't be played
+    }
+  };
+
+  // Play next sound (for cancel actions)
+  const playNextSound = () => {
+    if (!options.audio) return;
+    try {
+      player.play("sounds/next.wav");
+    } catch (error) {
+      // Silently fail if sound can't be played
+    }
+  };
+
   // Load commit history
   const loadCommits = async () => {
     try {
@@ -101,6 +122,17 @@ const GitCommitHistoryApp = () => {
       setCommits([
         { text: "Error loading commits", timestamp: "Unknown" },
       ]);
+    }
+  };
+
+  // Undo last commit (git reset --hard HEAD~1)
+  const undoLastCommit = async () => {
+    try {
+      const git = simpleGit(process.cwd());
+      await git.reset(['--hard', 'HEAD~1']);
+      loadCommits(); // Refresh the commit list
+    } catch (error) {
+      console.error("Failed to undo commit:", error.message);
     }
   };
 
@@ -136,6 +168,24 @@ const GitCommitHistoryApp = () => {
 
   // Handle keyboard input
   useInput((input, key) => {
+    if (showUndoConfirm) {
+      // Undo confirmation page
+      if (key.escape) {
+        playNextSound();
+        setShowUndoConfirm(false);
+        return;
+      }
+      
+      if (input === "y") {
+        playRevertSound();
+        setShowUndoConfirm(false);
+        undoLastCommit();
+        return;
+      }
+      
+      return;
+    }
+
     if (showOptions) {
       // Options page navigation
       if (key.escape) {
@@ -162,6 +212,11 @@ const GitCommitHistoryApp = () => {
 
     if (input === "o") {
       setShowOptions(true);
+      return;
+    }
+
+    if (input === "u") {
+      setShowUndoConfirm(true);
       return;
     }
 
@@ -239,6 +294,67 @@ const GitCommitHistoryApp = () => {
   const availableOptions = [
     { key: 'audio', label: 'Audio', type: 'boolean' }
   ];
+
+  // Render undo confirmation view
+  const renderUndoConfirmView = () => {
+    const currentCommit = commits.length > 0 ? commits[0] : null;
+    
+    return React.createElement(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      React.createElement(
+        Box,
+        { borderStyle: "single", padding: 1 },
+        React.createElement(
+          Box,
+          { flexDirection: "column" },
+          React.createElement(
+            Text,
+            { bold: true, color: "magenta" },
+            "Are you sure you want to undo the last vibepoint?"
+          ),
+          React.createElement(Text, null, " "),
+          React.createElement(Text, null, " "),
+          
+          React.createElement(
+            Text,
+            null,
+            "You are about to undo:"
+          ),
+          currentCommit && React.createElement(
+            Text,
+            { color: "yellow" },
+            `> ${currentCommit.text} - ${currentCommit.timestamp}`
+          ),
+          React.createElement(Text, null, " "),
+          
+          React.createElement(
+            Text,
+            null,
+            "This will permanently undo the last checkpoint AND all other changes"
+          ),
+          React.createElement(
+            Text,
+            null,
+            "that happened after it."
+          ),
+          React.createElement(Text, null, " "),
+          React.createElement(Text, null, " "),
+          
+          React.createElement(
+            Text,
+            { color: "green" },
+            "Press 'y' to confirm undo"
+          ),
+          React.createElement(
+            Text,
+            { color: "gray" },
+            "Press 'Esc' to cancel"
+          )
+        )
+      )
+    );
+  };
 
   // Render options view
   const renderOptionsView = () => {
@@ -333,6 +449,10 @@ const GitCommitHistoryApp = () => {
     );
   };
 
+  if (showUndoConfirm) {
+    return renderUndoConfirmView();
+  }
+
   if (showOptions) {
     return renderOptionsView();
   }
@@ -354,7 +474,7 @@ const GitCommitHistoryApp = () => {
         React.createElement(
           Text,
           { color: "gray" },
-          "Use ↑↓ to navigate • Press 1 to animate • o for options • q/Esc to exit"
+          "Use ↑↓ to navigate • Press 1 to animate • u to undo • o for options • q/Esc to exit"
         ),
         React.createElement(Text, null, " "),
 
