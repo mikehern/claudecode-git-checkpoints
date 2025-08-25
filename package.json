@@ -2,7 +2,7 @@
   "name": "conversation-history-app",
   "version": "1.0.0",
   "type": "module",
-  "description": "Ink app for browsing Claude Code conversation history",
+  "description": "Terminal app to quickly create, undo, and revert checkpoints while working with Claude Code",
   "main": "conversation-history-app.js",
   "scripts": {
     "start": "node conversation-history-app.js",
