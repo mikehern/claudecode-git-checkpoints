@@ -1270,11 +1270,6 @@ const GitCommitHistoryApp = () => {
             { bold: true, color: "blueBright" },
             "Git Commit History"
           ),
-          React.createElement(
-            Text,
-            { color: "gray" },
-            "Use ↑↓ to navigate • Press Enter to select • u to undo • o for options • q/Esc to exit"
-          ),
           React.createElement(Text, null, " "),
 
           visibleItems.length === 0 ||
@@ -1301,15 +1296,11 @@ const GitCommitHistoryApp = () => {
 
           React.createElement(Text, null, " "),
 
-          displayItems.length > 3 &&
-            React.createElement(
-              Text,
-              { color: "gray" },
-              `Showing ${windowStart + 1}-${Math.min(
-                windowStart + 3,
-                displayItems.length
-              )} of ${commits.length} checkpoints`
-            )
+          React.createElement(
+            Text,
+            { color: "gray" },
+            "Use ↑↓ to navigate • Press Enter to select • u to undo • o for options • q/Esc to exit"
+          )
         )
       ),
 
