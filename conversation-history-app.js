@@ -887,7 +887,7 @@ const GitCommitHistoryApp = () => {
           : lastClaudeInput.text
         : "No recent input found";
 
-    return [`1 ${lastInputText}`, "2 I'll customize it", "3 Let Claude decide"];
+    return [`1 "${lastInputText}"`, "2 I'll customize it", "3 Let Claude decide"];
   };
 
   // Render revert confirmation view
