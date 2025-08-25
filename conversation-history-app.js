@@ -132,7 +132,8 @@ const GitCommitHistoryApp = () => {
         });
 
         return {
-          text: commit.message || "No commit message",
+          text: commit.message || "No commit message", // Subject line only for main page
+          fullText: commit.body ? `${commit.message}\n\n${commit.body}` : commit.message || "No commit message", // Full message for details
           timestamp: `${formattedDate} at ${formattedTime}`,
           hash: commit.hash,
         };
@@ -960,10 +961,16 @@ const GitCommitHistoryApp = () => {
           ),
           React.createElement(Text, null, " "),
 
-          React.createElement(
-            Text,
-            { wrap: "wrap" },
-            selectedCommitDetails.text
+          // Split full commit message on actual newlines and render each line
+          ...selectedCommitDetails.fullText.split('\n').map((line, index) =>
+            React.createElement(
+              Text,
+              { 
+                key: `commit-line-${index}`,
+                wrap: "wrap" 
+              },
+              line || " " // Empty string becomes space to preserve blank lines
+            )
           ),
           React.createElement(Text, null, " "),
           React.createElement(
