@@ -36,7 +36,7 @@ const GitCommitHistoryApp = () => {
   const [successAnimatingIndex, setSuccessAnimatingIndex] = useState(-1);
   const [successAnimationProgress, setSuccessAnimationProgress] = useState(0);
   const [successAnimationPhase, setSuccessAnimationPhase] = useState(1); // 1 = turning green, 2 = turning back to default
-  const [options, setOptions] = useState({ audio: true });
+  const [options, setOptions] = useState({ audio: true, customPrefix: true });
   const [optionsSelectedIndex, setOptionsSelectedIndex] = useState(0);
   const { exit } = useApp();
 
@@ -55,7 +55,7 @@ const GitCommitHistoryApp = () => {
     } catch (error) {
       // Use defaults on error
     }
-    return { audio: true };
+    return { audio: true, customPrefix: true };
   };
 
   // Save options to file
@@ -218,10 +218,13 @@ const GitCommitHistoryApp = () => {
       setCreateVibepointError(null);
       const git = simpleGit(process.cwd());
 
+      // Apply prefix if enabled
+      const finalLabel = options.customPrefix ? `Vibe: ${label}` : label;
+      
       // Format commit message: label + empty line + description
       const commitMessage = description.trim()
-        ? `${label}\n\n${description}`
-        : label;
+        ? `${finalLabel}\n\n${description}`
+        : finalLabel;
 
       // Stage all changes
       await git.add(".");
@@ -602,10 +605,31 @@ const GitCommitHistoryApp = () => {
         return;
       }
 
+      if (key.upArrow) {
+        setOptionsSelectedIndex((prev) => {
+          const newIndex = Math.max(0, prev - 1);
+          if (newIndex !== prev) {
+            playMenuSound();
+          }
+          return newIndex;
+        });
+      }
+      
+      if (key.downArrow) {
+        setOptionsSelectedIndex((prev) => {
+          const newIndex = Math.min(availableOptions.length - 1, prev + 1);
+          if (newIndex !== prev) {
+            playMenuSound();
+          }
+          return newIndex;
+        });
+      }
+      
       if (key.leftArrow || key.rightArrow) {
-        if (optionsSelectedIndex === 0) {
-          // Audio option
-          const newOptions = { ...options, audio: !options.audio };
+        const selectedOption = availableOptions[optionsSelectedIndex];
+        if (selectedOption) {
+          playMenuSound();
+          const newOptions = { ...options, [selectedOption.key]: !options[selectedOption.key] };
           setOptions(newOptions);
           saveOptions(newOptions);
         }
@@ -786,7 +810,10 @@ const GitCommitHistoryApp = () => {
   const visibleItems = displayItems.slice(windowStart, windowStart + 4);
 
   // Available options
-  const availableOptions = [{ key: "audio", label: "Audio", type: "boolean" }];
+  const availableOptions = [
+    { key: "audio", label: "Audio", type: "boolean" },
+    { key: "customPrefix", label: "Prefix custom messages with 'Vibe'", type: "boolean" }
+  ];
 
   // Create vibepoint options
   const getCreateVibepointOptions = () => {
@@ -1145,9 +1172,18 @@ const GitCommitHistoryApp = () => {
               Box,
               { key: option.key, width: "100%" },
               React.createElement(
+                Box,
+                { width: 50 },
+                React.createElement(
+                  Text,
+                  { color: isSelected ? "yellow" : "white" },
+                  `${indicator} ${option.label}`
+                )
+              ),
+              React.createElement(
                 Text,
                 { color: isSelected ? "yellow" : "white" },
-                `${indicator} ${option.label}                    ${displayValue}`
+                displayValue
               )
             );
           }),
