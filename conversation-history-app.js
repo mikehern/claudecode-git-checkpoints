@@ -894,7 +894,9 @@ const GitCommitHistoryApp = () => {
     if (!selectedRevertCommit) return null;
 
     // Calculate which commits will be lost (all commits before the selected one in the list)
-    const revertCommitIndex = commits.findIndex(commit => commit.hash === selectedRevertCommit.hash);
+    const revertCommitIndex = commits.findIndex(
+      (commit) => commit.hash === selectedRevertCommit.hash
+    );
     const commitsToLose = commits.slice(0, revertCommitIndex);
 
     return React.createElement(
@@ -922,7 +924,12 @@ const GitCommitHistoryApp = () => {
           ),
           React.createElement(Text, null, " "),
 
-          commitsToLose.length > 0 && React.createElement(Text, null, "This will permanently remove the following vibepoints:"),
+          commitsToLose.length > 0 &&
+            React.createElement(
+              Text,
+              null,
+              "This will permanently remove the following vibepoints:"
+            ),
           ...commitsToLose.map((commit, index) =>
             React.createElement(
               Text,
@@ -936,10 +943,16 @@ const GitCommitHistoryApp = () => {
             Text,
             null,
             commitsToLose.length > 0
-              ? `WARNING: This will permanently delete ${commitsToLose.length} vibepoint${commitsToLose.length > 1 ? 's' : ''} AND all other`
+              ? `WARNING: This will permanently delete ${
+                  commitsToLose.length
+                } vibepoint${commitsToLose.length > 1 ? "s" : ""} AND all other`
               : "This will permanently revert to this vibepoint AND all other"
           ),
-          React.createElement(Text, null, "changes that happened after this point."),
+          React.createElement(
+            Text,
+            null,
+            "changes that happened after this point."
+          ),
           React.createElement(Text, null, " "),
           React.createElement(Text, null, " "),
 
@@ -1376,6 +1389,43 @@ const GitCommitHistoryApp = () => {
     return React.createElement(
       Box,
       { flexDirection: "column", padding: 1 },
+      // Gray box with last Claude input
+      React.createElement(
+        Box,
+        {
+          borderStyle: "",
+          padding: 1,
+          marginBottom: 1,
+        },
+        React.createElement(
+          Box,
+          { flexDirection: "row" },
+          // Left column - timestamp and arrow
+          React.createElement(
+            Box,
+            { width: 12, flexShrink: 0 },
+            React.createElement(
+              Text,
+              { color: "gray" },
+              lastClaudeInput && lastClaudeInput.timestamp
+                ? `${lastClaudeInput.timestamp.split(" at ")[1]} ►`
+                : ""
+            )
+          ),
+          // Right column - message text
+          React.createElement(
+            Box,
+            { flexGrow: 1 },
+            React.createElement(
+              Text,
+              { color: "gray", wrap: "wrap" },
+              lastClaudeInput && lastClaudeInput.text
+                ? lastClaudeInput.text
+                : "No recent Claude Code input found"
+            )
+          )
+        )
+      ),
       React.createElement(
         Box,
         {
