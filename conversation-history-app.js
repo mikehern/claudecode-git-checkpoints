@@ -502,6 +502,7 @@ const GitCommitHistoryApp = () => {
       if (key.escape) {
         playNextSound();
         setShowCustomLabel(false);
+        setShowCreateVibepoint(true);
         setCustomLabel("");
         return;
       }
