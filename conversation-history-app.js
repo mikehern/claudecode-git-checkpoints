@@ -38,6 +38,11 @@ const GitCommitHistoryApp = () => {
   const [options, setOptions] = useState({ audio: true, customPrefix: true });
   const [optionsSelectedIndex, setOptionsSelectedIndex] = useState(0);
   const [hasUncommittedChanges, setHasUncommittedChanges] = useState(false);
+  const [currentFileChanges, setCurrentFileChanges] = useState({
+    added: [],
+    modified: [],
+    removed: [],
+  });
   const { exit } = useApp();
 
   const optionsPath = path.join(process.cwd(), "options.json");
@@ -233,6 +238,35 @@ const GitCommitHistoryApp = () => {
       return changes;
     } catch (error) {
       console.error("Failed to get commit changes:", error.message);
+      return { added: [], modified: [], removed: [] };
+    }
+  };
+
+  // Get current uncommitted file changes
+  const getCurrentFileChanges = async () => {
+    try {
+      const git = simpleGit(process.cwd());
+      const status = await git.status();
+
+      const changes = {
+        added: [],
+        modified: [],
+        removed: [],
+      };
+
+      status.files.forEach((file) => {
+        if (file.index === 'A' || file.working_dir === 'A') {
+          changes.added.push(file.path);
+        } else if (file.index === 'D' || file.working_dir === 'D') {
+          changes.removed.push(file.path);
+        } else if (file.index === 'M' || file.working_dir === 'M') {
+          changes.modified.push(file.path);
+        }
+      });
+
+      return changes;
+    } catch (error) {
+      console.error("Failed to get current changes:", error.message);
       return { added: [], modified: [], removed: [] };
     }
   };
@@ -504,6 +538,11 @@ const GitCommitHistoryApp = () => {
         setShowCustomLabel(false);
         setShowCreateVibepoint(true);
         setCustomLabel("");
+        
+        // Load current file changes
+        getCurrentFileChanges().then((changes) => {
+          setCurrentFileChanges(changes);
+        });
         return;
       }
 
@@ -743,6 +782,11 @@ const GitCommitHistoryApp = () => {
     if (input === "1") {
       setShowCreateVibepoint(true);
       setCreateVibepointSelectedIndex(0);
+      
+      // Load current file changes
+      getCurrentFileChanges().then((changes) => {
+        setCurrentFileChanges(changes);
+      });
       return;
     }
 
@@ -785,6 +829,11 @@ const GitCommitHistoryApp = () => {
         playAnimationSound();
         setShowCreateVibepoint(true);
         setCreateVibepointSelectedIndex(0);
+        
+        // Load current file changes
+        getCurrentFileChanges().then((changes) => {
+          setCurrentFileChanges(changes);
+        });
         return;
       }
     }
@@ -1023,6 +1072,46 @@ const GitCommitHistoryApp = () => {
     return React.createElement(
       Box,
       { flexDirection: "column", padding: 1 },
+      // File changes section (above the box)
+      ...currentFileChanges.added.map((file, index) =>
+        React.createElement(
+          Text,
+          {
+            key: `added-${index}`,
+            color: "green",
+          },
+          `+ ${file}`
+        )
+      ),
+      ...currentFileChanges.modified.map((file, index) =>
+        React.createElement(
+          Text,
+          {
+            key: `modified-${index}`,
+            color: "yellow",
+            inverse: true,
+          },
+          `~ ${file}`
+        )
+      ),
+      ...currentFileChanges.removed.map((file, index) =>
+        React.createElement(
+          Text,
+          {
+            key: `removed-${index}`,
+            color: "red",
+            inverse: true,
+          },
+          `- ${file}`
+        )
+      ),
+      
+      // Add spacing if there are file changes
+      (currentFileChanges.added.length > 0 ||
+        currentFileChanges.modified.length > 0 ||
+        currentFileChanges.removed.length > 0) &&
+        React.createElement(Text, null, " "),
+      
       React.createElement(
         Box,
         { borderStyle: "single", padding: 1 },
