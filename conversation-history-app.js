@@ -739,7 +739,7 @@ const GitCommitHistoryApp = () => {
       return;
     }
 
-    if (input === "c") {
+    if (input === "1") {
       setShowCreateVibepoint(true);
       setCreateVibepointSelectedIndex(0);
       return;
@@ -860,7 +860,7 @@ const GitCommitHistoryApp = () => {
 
   // Create display items ("Create vibepoint" + commits)
   const displayItems = [
-    { type: "create", text: "Create vibepoint", timestamp: "" },
+    { type: "create", text: "1 Create vibepoint", timestamp: "" },
     ...commits.map((commit) => ({ type: "commit", ...commit })),
   ];
 
@@ -1470,7 +1470,7 @@ const GitCommitHistoryApp = () => {
           React.createElement(
             Text,
             { color: "gray" },
-            "Use ↑↓ to navigate • c to create • d for details • r to revert • u to undo last vibepoint • o for options • q/Esc to exit"
+            "Use ↑↓ to navigate • 1 to create • d for details • r to revert • u to undo last vibepoint • o for options • q/Esc to exit"
           )
         )
       ),
@@ -1482,7 +1482,8 @@ const GitCommitHistoryApp = () => {
       React.createElement(
         Text,
         null,
-        hasUncommittedChanges && React.createElement(Text, { color: "red" }, "! "),
+        hasUncommittedChanges &&
+          React.createElement(Text, { color: "red" }, "! "),
         `${commits.length} `,
         React.createElement(Text, { color: "blue" }, "✓")
       )
