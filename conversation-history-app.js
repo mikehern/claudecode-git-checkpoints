@@ -112,6 +112,16 @@ const GitCommitHistoryApp = () => {
     }
   };
 
+  // Play exit sound
+  const playExitSound = () => {
+    if (!options.audio) return;
+    try {
+      player.play("sounds/exit.wav");
+    } catch (error) {
+      // Silently fail if sound can't be played
+    }
+  };
+
   // Load commit history
   const loadCommits = async () => {
     try {
@@ -640,7 +650,11 @@ const GitCommitHistoryApp = () => {
 
     // Main page navigation
     if (input === "q" || key.escape) {
-      exit();
+      playExitSound();
+      // Add small delay to let exit sound play before exiting
+      setTimeout(() => {
+        exit();
+      }, 200);
       return;
     }
 
