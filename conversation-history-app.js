@@ -22,6 +22,8 @@ const GitCommitHistoryApp = () => {
   const [createVibepointSelectedIndex, setCreateVibepointSelectedIndex] =
     useState(0);
   const [createVibepointError, setCreateVibepointError] = useState(null);
+  const [showVibepointDetails, setShowVibepointDetails] = useState(false);
+  const [selectedCommitDetails, setSelectedCommitDetails] = useState(null);
   const [successAnimatingIndex, setSuccessAnimatingIndex] = useState(-1);
   const [successAnimationProgress, setSuccessAnimationProgress] = useState(0);
   const [successAnimationPhase, setSuccessAnimationPhase] = useState(1); // 1 = turning green, 2 = turning back to default
@@ -350,6 +352,18 @@ const GitCommitHistoryApp = () => {
 
   // Handle keyboard input
   useInput((input, key) => {
+    if (showVibepointDetails) {
+      // Vibepoint details page navigation
+      if (key.escape) {
+        playNextSound();
+        setShowVibepointDetails(false);
+        setSelectedCommitDetails(null);
+        return;
+      }
+
+      return;
+    }
+
     if (showCreateVibepoint) {
       // Create vibepoint page navigation
       if (key.escape) {
@@ -485,6 +499,20 @@ const GitCommitHistoryApp = () => {
     if (input === "c") {
       setShowCreateVibepoint(true);
       setCreateVibepointSelectedIndex(0);
+      return;
+    }
+
+    if (input === "d") {
+      // Only show details if a real commit is selected (not "Create vibepoint")
+      if (selectedIndex > 0) {
+        const commitIndex = selectedIndex - 1; // Adjust for "Create vibepoint" offset
+        const commit = commits[commitIndex];
+        if (commit) {
+          playAnimationSound();
+          setSelectedCommitDetails(commit);
+          setShowVibepointDetails(true);
+        }
+      }
       return;
     }
 
@@ -769,6 +797,44 @@ const GitCommitHistoryApp = () => {
     );
   };
 
+  // Render vibepoint details view
+  const renderVibepointDetailsView = () => {
+    if (!selectedCommitDetails) return null;
+
+    return React.createElement(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      React.createElement(
+        Box,
+        { borderStyle: "single", padding: 1 },
+        React.createElement(
+          Box,
+          { flexDirection: "column" },
+          React.createElement(
+            Text,
+            { bold: true, color: "magenta" },
+            "Vibepoint Details"
+          ),
+          React.createElement(Text, null, " "),
+
+          React.createElement(
+            Text,
+            { wrap: "wrap" },
+            selectedCommitDetails.text
+          ),
+          React.createElement(Text, null, " "),
+          React.createElement(
+            Text,
+            { color: "gray" },
+            selectedCommitDetails.timestamp
+          ),
+          React.createElement(Text, null, " "),
+          React.createElement(Text, { color: "gray" }, "Press 'Esc' to go back")
+        )
+      )
+    );
+  };
+
   // Render options view
   const renderOptionsView = () => {
     return React.createElement(
@@ -982,6 +1048,10 @@ const GitCommitHistoryApp = () => {
       )
     );
   };
+
+  if (showVibepointDetails) {
+    return renderVibepointDetailsView();
+  }
 
   if (showCreateVibepoint) {
     return renderCreateVibepointView();
