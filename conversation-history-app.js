@@ -122,6 +122,16 @@ const GitCommitHistoryApp = () => {
     }
   };
 
+  // Play vibepoint sound
+  const playVibepointSound = () => {
+    if (!options.audio) return;
+    try {
+      player.play("sounds/vibepoint.wav");
+    } catch (error) {
+      // Silently fail if sound can't be played
+    }
+  };
+
   // Load commit history
   const loadCommits = async () => {
     try {
@@ -185,6 +195,9 @@ const GitCommitHistoryApp = () => {
       // Start success animation for the newly created commit (index 1 because "Create vibepoint" is at 0)
       setSuccessAnimatingIndex(1);
       setSuccessAnimationProgress(0);
+      
+      // Play vibepoint success sound
+      playVibepointSound();
     } catch (error) {
       console.error("Failed to create vibepoint:", error.message);
       setCreateVibepointError(`Error: ${error.message}`);
@@ -252,6 +265,9 @@ const GitCommitHistoryApp = () => {
       // Start success animation for the newly created commit
       setSuccessAnimatingIndex(1);
       setSuccessAnimationProgress(0);
+      
+      // Play vibepoint success sound
+      playVibepointSound();
     } catch (error) {
       console.error("Failed to create custom vibepoint:", error.message);
       setCreateVibepointError(`Error: ${error.message}`);
