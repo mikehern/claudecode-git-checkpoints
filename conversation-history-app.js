@@ -19,7 +19,8 @@ const GitCommitHistoryApp = () => {
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [showClaudeInput, setShowClaudeInput] = useState(false);
   const [showCreateVibepoint, setShowCreateVibepoint] = useState(false);
-  const [createVibepointSelectedIndex, setCreateVibepointSelectedIndex] = useState(0);
+  const [createVibepointSelectedIndex, setCreateVibepointSelectedIndex] =
+    useState(0);
   const [createVibepointError, setCreateVibepointError] = useState(null);
   const [successAnimatingIndex, setSuccessAnimatingIndex] = useState(-1);
   const [successAnimationProgress, setSuccessAnimationProgress] = useState(0);
@@ -141,26 +142,26 @@ const GitCommitHistoryApp = () => {
     try {
       setCreateVibepointError(null);
       const git = simpleGit(process.cwd());
-      
+
       // Get the commit message from the actual displayed text (without the "1 " prefix)
-      const commitMessage = lastClaudeInput && lastClaudeInput.text 
-        ? lastClaudeInput.text 
-        : "No recent input found";
-      
+      const commitMessage =
+        lastClaudeInput && lastClaudeInput.text
+          ? lastClaudeInput.text
+          : "No recent input found";
+
       // Stage all changes
-      await git.add('.');
-      
+      await git.add(".");
+
       // Commit with the message
       await git.commit(commitMessage);
-      
+
       // Refresh the commit list and return to main page
       loadCommits();
       setShowCreateVibepoint(false);
-      
+
       // Start success animation for the newly created commit (index 1 because "Create vibepoint" is at 0)
       setSuccessAnimatingIndex(1);
       setSuccessAnimationProgress(0);
-      
     } catch (error) {
       console.error("Failed to create vibepoint:", error.message);
       setCreateVibepointError(`Error: ${error.message}`);
@@ -419,7 +420,7 @@ const GitCommitHistoryApp = () => {
         setShowClaudeInput(false);
         return;
       }
-      
+
       return;
     }
 
@@ -523,7 +524,8 @@ const GitCommitHistoryApp = () => {
     }
 
     if (input === "1" && animatingIndex === -1) {
-      if (selectedIndex > 0) { // Don't animate "Create vibepoint"
+      if (selectedIndex > 0) {
+        // Don't animate "Create vibepoint"
         playAnimationSound();
         setAnimatingIndex(selectedIndex - 1); // Adjust for "Create vibepoint" offset
         setAnimationProgress(0);
@@ -558,7 +560,6 @@ const GitCommitHistoryApp = () => {
     }
   }, [animatingIndex, commits]);
 
-
   // Success animation effect for newly created commit on main page (two phases)
   useEffect(() => {
     if (successAnimatingIndex !== -1) {
@@ -572,7 +573,7 @@ const GitCommitHistoryApp = () => {
           const next = prev + 1;
           if (next >= totalChars) {
             clearInterval(interval);
-            
+
             if (successAnimationPhase === 1) {
               // Phase 1 complete (all green), start phase 2 (back to default)
               setTimeout(() => {
@@ -591,7 +592,7 @@ const GitCommitHistoryApp = () => {
           }
           return next;
         });
-      }, 50); // 50ms per character
+      }, 20); // 20ms per character
 
       return () => clearInterval(interval);
     }
@@ -599,8 +600,8 @@ const GitCommitHistoryApp = () => {
 
   // Create display items ("Create vibepoint" + commits)
   const displayItems = [
-    { type: 'create', text: 'Create vibepoint', timestamp: '' },
-    ...commits.map(commit => ({ type: 'commit', ...commit }))
+    { type: "create", text: "Create vibepoint", timestamp: "" },
+    ...commits.map((commit) => ({ type: "commit", ...commit })),
   ];
 
   // Get visible items (sliding window)
@@ -611,17 +612,14 @@ const GitCommitHistoryApp = () => {
 
   // Create vibepoint options
   const getCreateVibepointOptions = () => {
-    const lastInputText = lastClaudeInput && lastClaudeInput.text 
-      ? (lastClaudeInput.text.length > 60 
-          ? lastClaudeInput.text.slice(0, 60) + "..." 
-          : lastClaudeInput.text)
-      : "No recent input found";
-    
-    return [
-      `1 ${lastInputText}`,
-      "2 I'll customize it",
-      "3 Let Claude decide"
-    ];
+    const lastInputText =
+      lastClaudeInput && lastClaudeInput.text
+        ? lastClaudeInput.text.length > 60
+          ? lastClaudeInput.text.slice(0, 60) + "..."
+          : lastClaudeInput.text
+        : "No recent input found";
+
+    return [`1 ${lastInputText}`, "2 I'll customize it", "3 Let Claude decide"];
   };
 
   // Render undo confirmation view
@@ -708,15 +706,16 @@ const GitCommitHistoryApp = () => {
           }),
 
           React.createElement(Text, null, " "),
-          React.createElement(Text, { color: "gray" }, "Press 1-3 to select • Enter to confirm • Esc to go back"),
-          
+          React.createElement(
+            Text,
+            { color: "gray" },
+            "Press 1-3 to select • Enter to confirm • Esc to go back"
+          ),
+
           // Error display
           createVibepointError && React.createElement(Text, null, " "),
-          createVibepointError && React.createElement(
-            Text,
-            { color: "red" },
-            createVibepointError
-          )
+          createVibepointError &&
+            React.createElement(Text, { color: "red" }, createVibepointError)
         )
       )
     );
@@ -760,11 +759,7 @@ const GitCommitHistoryApp = () => {
         )
       ),
       React.createElement(Text, null, " "),
-      React.createElement(
-        Text,
-        { color: "gray" },
-        "Press 'Esc' to go back"
-      )
+      React.createElement(Text, { color: "gray" }, "Press 'Esc' to go back")
     );
   };
 
@@ -815,10 +810,10 @@ const GitCommitHistoryApp = () => {
     const globalIndex = windowStart + index;
     const indicator = isSelected ? ">" : " ";
 
-    if (item.type === 'create') {
+    if (item.type === "create") {
       return React.createElement(
         Box,
-        { key: 'create-vibepoint', width: "100%" },
+        { key: "create-vibepoint", width: "100%" },
         React.createElement(
           Text,
           {
@@ -899,7 +894,7 @@ const GitCommitHistoryApp = () => {
     );
   };
 
-  // Render main view  
+  // Render main view
   const renderMainView = () => {
     return React.createElement(
       Box,
@@ -922,13 +917,26 @@ const GitCommitHistoryApp = () => {
           ),
           React.createElement(Text, null, " "),
 
-          visibleItems.length === 0 || (visibleItems.length === 1 && visibleItems[0].type === 'create')
+          visibleItems.length === 0 ||
+            (visibleItems.length === 1 && visibleItems[0].type === "create")
             ? [
-                renderDisplayItem({ type: 'create', text: 'Create vibepoint' }, 0, selectedIndex === 0),
-                React.createElement(Text, { color: "yellow", key: "loading" }, "Loading commits...")
+                renderDisplayItem(
+                  { type: "create", text: "Create vibepoint" },
+                  0,
+                  selectedIndex === 0
+                ),
+                React.createElement(
+                  Text,
+                  { color: "yellow", key: "loading" },
+                  "Loading commits..."
+                ),
               ]
             : visibleItems.map((item, index) =>
-                renderDisplayItem(item, index, windowStart + index === selectedIndex)
+                renderDisplayItem(
+                  item,
+                  index,
+                  windowStart + index === selectedIndex
+                )
               ),
 
           React.createElement(Text, null, " "),
@@ -944,9 +952,10 @@ const GitCommitHistoryApp = () => {
             )
         )
       ),
-      
+
       // Footer with 72-character preview of last Claude input
-      lastClaudeInput && lastClaudeInput.text &&
+      lastClaudeInput &&
+        lastClaudeInput.text &&
         React.createElement(
           Text,
           { color: "gray" },
@@ -954,20 +963,16 @@ const GitCommitHistoryApp = () => {
             ? lastClaudeInput.text.slice(0, 72)
             : lastClaudeInput.text
         ),
-      
+
       // Blank line
       React.createElement(Text, null, " "),
-      
+
       // Commit count with blue check mark
       React.createElement(
         Text,
         null,
         `${commits.length} `,
-        React.createElement(
-          Text,
-          { color: "blue" },
-          "✓"
-        )
+        React.createElement(Text, { color: "blue" }, "✓")
       )
     );
   };
