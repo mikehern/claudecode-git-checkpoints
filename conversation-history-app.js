@@ -38,6 +38,7 @@ const GitCommitHistoryApp = () => {
   const [successAnimationPhase, setSuccessAnimationPhase] = useState(1); // 1 = turning green, 2 = turning back to default
   const [options, setOptions] = useState({ audio: true, customPrefix: true });
   const [optionsSelectedIndex, setOptionsSelectedIndex] = useState(0);
+  const [hasUncommittedChanges, setHasUncommittedChanges] = useState(false);
   const { exit } = useApp();
 
   const optionsPath = path.join(process.cwd(), "options.json");
@@ -390,10 +391,33 @@ const GitCommitHistoryApp = () => {
     }
   };
 
+  // Check for uncommitted changes
+  const checkUncommittedChanges = async () => {
+    try {
+      const git = simpleGit(process.cwd());
+      const status = await git.status();
+      
+      // Check if there are any uncommitted changes
+      const hasChanges = 
+        status.files.length > 0 ||
+        status.staged.length > 0 ||
+        status.modified.length > 0 ||
+        status.deleted.length > 0 ||
+        status.created.length > 0 ||
+        status.renamed.length > 0;
+        
+      setHasUncommittedChanges(hasChanges);
+    } catch (error) {
+      // If git status fails, assume no changes
+      setHasUncommittedChanges(false);
+    }
+  };
+
   useEffect(() => {
     // Initial load
     loadCommits();
     loadLastClaudeInput();
+    checkUncommittedChanges();
 
     // Watch for Git changes
     const gitLogPath = path.join(process.cwd(), ".git", "logs", "HEAD");
@@ -404,6 +428,7 @@ const GitCommitHistoryApp = () => {
         gitWatcher = fs.watch(gitLogPath, (eventType) => {
           if (eventType === "change") {
             loadCommits();
+            checkUncommittedChanges();
           }
         });
       } else {
@@ -443,7 +468,10 @@ const GitCommitHistoryApp = () => {
       console.warn("Failed to setup Claude Code file watching:", error.message);
     }
 
-    // Cleanup watchers on unmount
+    // Set up periodic check for uncommitted changes
+    const statusInterval = setInterval(checkUncommittedChanges, 2000);
+
+    // Cleanup watchers and interval on unmount
     return () => {
       if (gitWatcher) {
         gitWatcher.close();
@@ -451,6 +479,7 @@ const GitCommitHistoryApp = () => {
       if (claudeWatcher) {
         claudeWatcher.close();
       }
+      clearInterval(statusInterval);
     };
   }, []);
 
@@ -1237,7 +1266,11 @@ const GitCommitHistoryApp = () => {
         React.createElement(
           Text,
           {
-            color: isSelected ? "yellow" : "green",
+            color: isSelected 
+              ? "yellow" 
+              : hasUncommittedChanges 
+                ? "red" 
+                : "green",
             inverse: !isSelected,
             wrap: "truncate",
           },
@@ -1330,7 +1363,11 @@ const GitCommitHistoryApp = () => {
       { flexDirection: "column", padding: 1 },
       React.createElement(
         Box,
-        { borderStyle: "single", padding: 1 },
+        { 
+          borderStyle: "single", 
+          borderColor: hasUncommittedChanges ? "redBright" : undefined,
+          padding: 1 
+        },
         React.createElement(
           Box,
           { flexDirection: "column" },
