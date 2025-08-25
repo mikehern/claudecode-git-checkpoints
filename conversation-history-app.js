@@ -720,7 +720,7 @@ const GitCommitHistoryApp = () => {
     }
 
     // Main page navigation
-    if (input === "q" || key.escape) {
+    if (input === "x") {
       playExitSound();
       // Add small delay to let exit sound play before exiting
       setTimeout(() => {
@@ -1470,7 +1470,7 @@ const GitCommitHistoryApp = () => {
           React.createElement(
             Text,
             { color: "gray" },
-            "Use ↑↓ to navigate • 1 to create • d for details • r to revert • u to undo last vibepoint • o for options • q/Esc to exit"
+            "Use ↑↓ to navigate • 1 to create • d for details • r to revert • u to undo last vibepoint • o for options • x to exit"
           )
         )
       ),
