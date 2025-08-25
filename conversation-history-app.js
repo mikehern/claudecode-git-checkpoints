@@ -12,12 +12,9 @@ const GitCommitHistoryApp = () => {
   const [commits, setCommits] = useState([]);
   const [lastClaudeInput, setLastClaudeInput] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [animatingIndex, setAnimatingIndex] = useState(-1);
-  const [animationProgress, setAnimationProgress] = useState(0);
   const [windowStart, setWindowStart] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
-  const [showClaudeInput, setShowClaudeInput] = useState(false);
   const [showCreateVibepoint, setShowCreateVibepoint] = useState(false);
   const [createVibepointSelectedIndex, setCreateVibepointSelectedIndex] =
     useState(0);
@@ -624,16 +621,6 @@ const GitCommitHistoryApp = () => {
       return;
     }
 
-    if (showClaudeInput) {
-      // Claude input page navigation
-      if (key.escape) {
-        playNextSound();
-        setShowClaudeInput(false);
-        return;
-      }
-
-      return;
-    }
 
     if (showUndoConfirm) {
       // Undo confirmation page
@@ -713,10 +700,6 @@ const GitCommitHistoryApp = () => {
       return;
     }
 
-    if (input === "v") {
-      setShowClaudeInput(true);
-      return;
-    }
 
     if (input === "c") {
       setShowCreateVibepoint(true);
@@ -784,42 +767,8 @@ const GitCommitHistoryApp = () => {
       });
     }
 
-    if (input === "1" && animatingIndex === -1) {
-      if (selectedIndex > 0) {
-        // Don't animate "Create vibepoint"
-        playAnimationSound();
-        setAnimatingIndex(selectedIndex - 1); // Adjust for "Create vibepoint" offset
-        setAnimationProgress(0);
-      }
-    }
   });
 
-  // Animation effect for main page commits
-  useEffect(() => {
-    if (animatingIndex !== -1) {
-      const commit = commits[animatingIndex];
-      if (!commit) return;
-
-      const totalChars = commit.text.length;
-      const interval = setInterval(() => {
-        setAnimationProgress((prev) => {
-          const next = prev + 1;
-          if (next >= totalChars) {
-            clearInterval(interval);
-            // Reset animation after a delay
-            setTimeout(() => {
-              setAnimatingIndex(-1);
-              setAnimationProgress(0);
-            }, 500);
-            return totalChars;
-          }
-          return next;
-        });
-      }, 5); // 5ms per character
-
-      return () => clearInterval(interval);
-    }
-  }, [animatingIndex, commits]);
 
   // Success animation effect for newly created commit on main page (two phases)
   useEffect(() => {
@@ -985,47 +934,6 @@ const GitCommitHistoryApp = () => {
     );
   };
 
-  // Render Claude input view
-  const renderClaudeInputView = () => {
-    return React.createElement(
-      Box,
-      { flexDirection: "column", padding: 1 },
-      React.createElement(
-        Box,
-        { borderStyle: "single", height: 4 },
-        React.createElement(
-          Box,
-          { flexDirection: "column", padding: 0 },
-          React.createElement(
-            Text,
-            { bold: true, color: "cyan" },
-            "Last Claude Code Input:"
-          ),
-          lastClaudeInput
-            ? React.createElement(
-                Text,
-                { color: "red" },
-                `> ${
-                  lastClaudeInput.text.length > 68
-                    ? lastClaudeInput.text.slice(0, 65) + "..."
-                    : lastClaudeInput.text
-                }`
-              )
-            : React.createElement(Text, { color: "gray" }, "> Loading..."),
-          lastClaudeInput && lastClaudeInput.timestamp
-            ? React.createElement(
-                Text,
-                { color: "gray" },
-                `  ${lastClaudeInput.timestamp}`
-              )
-            : React.createElement(Text, null, " "),
-          React.createElement(Text, null, " ")
-        )
-      ),
-      React.createElement(Text, null, " "),
-      React.createElement(Text, { color: "gray" }, "Press 'Esc' to go back")
-    );
-  };
 
   // Render vibepoint details view
   const renderVibepointDetailsView = () => {
@@ -1281,7 +1189,6 @@ const GitCommitHistoryApp = () => {
 
     // Handle regular commit - now using two lines
     const commitIndex = globalIndex - 1; // Adjust for "Create vibepoint" offset
-    const isAnimating = commitIndex === animatingIndex;
     const isSuccessAnimating = globalIndex === successAnimatingIndex;
 
     // Truncate text to prevent wrapping issues
@@ -1313,19 +1220,6 @@ const GitCommitHistoryApp = () => {
             } else {
               return chalk.green(char); // still green
             }
-          }
-        })
-        .join("");
-      commitMessageLine = `${indicator} ${animatedText}`;
-    } else if (isAnimating) {
-      // Apply blue to teal animation only to the main text
-      const animatedText = truncatedText
-        .split("")
-        .map((char, charIndex) => {
-          if (charIndex < animationProgress) {
-            return chalk.cyan(char); // teal
-          } else {
-            return chalk.blue(char); // blue
           }
         })
         .join("");
@@ -1379,7 +1273,7 @@ const GitCommitHistoryApp = () => {
           React.createElement(
             Text,
             { color: "gray" },
-            "Use ↑↓ to navigate • Press Enter to select • Press 1 to animate • u to undo • v for input • o for options • q/Esc to exit"
+            "Use ↑↓ to navigate • Press Enter to select • u to undo • o for options • q/Esc to exit"
           ),
           React.createElement(Text, null, " "),
 
@@ -1456,9 +1350,6 @@ const GitCommitHistoryApp = () => {
     return renderCreateVibepointView();
   }
 
-  if (showClaudeInput) {
-    return renderClaudeInputView();
-  }
 
   if (showUndoConfirm) {
     return renderUndoConfirmView();
