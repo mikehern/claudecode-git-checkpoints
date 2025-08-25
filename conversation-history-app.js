@@ -24,6 +24,11 @@ const GitCommitHistoryApp = () => {
   const [createVibepointError, setCreateVibepointError] = useState(null);
   const [showVibepointDetails, setShowVibepointDetails] = useState(false);
   const [selectedCommitDetails, setSelectedCommitDetails] = useState(null);
+  const [commitFileChanges, setCommitFileChanges] = useState({
+    added: [],
+    modified: [],
+    removed: [],
+  });
   const [successAnimatingIndex, setSuccessAnimatingIndex] = useState(-1);
   const [successAnimationProgress, setSuccessAnimationProgress] = useState(0);
   const [successAnimationPhase, setSuccessAnimationPhase] = useState(1); // 1 = turning green, 2 = turning back to default
@@ -125,6 +130,7 @@ const GitCommitHistoryApp = () => {
         return {
           text: commit.message || "No commit message",
           timestamp: `${formattedDate} at ${formattedTime}`,
+          hash: commit.hash,
         };
       });
 
@@ -167,6 +173,37 @@ const GitCommitHistoryApp = () => {
     } catch (error) {
       console.error("Failed to create vibepoint:", error.message);
       setCreateVibepointError(`Error: ${error.message}`);
+    }
+  };
+
+  // Get file changes for a specific commit
+  const getCommitFileChanges = async (commitHash) => {
+    try {
+      const git = simpleGit(process.cwd());
+
+      // Get the diff with file status
+      const diffSummary = await git.diffSummary([`${commitHash}^`, commitHash]);
+
+      const changes = {
+        added: [],
+        modified: [],
+        removed: [],
+      };
+
+      diffSummary.files.forEach((file) => {
+        if (file.insertions > 0 && file.deletions === 0) {
+          changes.added.push(file.file);
+        } else if (file.insertions === 0 && file.deletions > 0) {
+          changes.removed.push(file.file);
+        } else if (file.insertions > 0 && file.deletions > 0) {
+          changes.modified.push(file.file);
+        }
+      });
+
+      return changes;
+    } catch (error) {
+      console.error("Failed to get commit changes:", error.message);
+      return { added: [], modified: [], removed: [] };
     }
   };
 
@@ -358,6 +395,7 @@ const GitCommitHistoryApp = () => {
         playNextSound();
         setShowVibepointDetails(false);
         setSelectedCommitDetails(null);
+        setCommitFileChanges({ added: [], modified: [], removed: [] });
         return;
       }
 
@@ -511,6 +549,11 @@ const GitCommitHistoryApp = () => {
           playAnimationSound();
           setSelectedCommitDetails(commit);
           setShowVibepointDetails(true);
+
+          // Load file changes for this commit
+          getCommitFileChanges(commit.hash).then((changes) => {
+            setCommitFileChanges(changes);
+          });
         }
       }
       return;
@@ -829,6 +872,56 @@ const GitCommitHistoryApp = () => {
             selectedCommitDetails.timestamp
           ),
           React.createElement(Text, null, " "),
+
+          // File changes section
+          (commitFileChanges.added.length > 0 ||
+            commitFileChanges.modified.length > 0 ||
+            commitFileChanges.removed.length > 0) &&
+            React.createElement(Text, { bold: true }, ""),
+
+          // Added files
+          ...commitFileChanges.added.map((file, index) =>
+            React.createElement(
+              Text,
+              {
+                key: `added-${index}`,
+                color: "green",
+                inverse: true,
+              },
+              `+ ${file}`
+            )
+          ),
+
+          // Modified files
+          ...commitFileChanges.modified.map((file, index) =>
+            React.createElement(
+              Text,
+              {
+                key: `modified-${index}`,
+                color: "yellow",
+                inverse: true,
+              },
+              `~ ${file}`
+            )
+          ),
+
+          // Removed files
+          ...commitFileChanges.removed.map((file, index) =>
+            React.createElement(
+              Text,
+              {
+                key: `removed-${index}`,
+                color: "red",
+                inverse: true,
+              },
+              `- ${file}`
+            )
+          ),
+
+          (commitFileChanges.added.length > 0 ||
+            commitFileChanges.modified.length > 0 ||
+            commitFileChanges.removed.length > 0) &&
+            React.createElement(Text, null, " "),
           React.createElement(Text, { color: "gray" }, "Press 'Esc' to go back")
         )
       )
