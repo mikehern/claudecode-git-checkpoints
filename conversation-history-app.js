@@ -1306,7 +1306,7 @@ const GitCommitHistoryApp = () => {
           React.createElement(
             Text,
             { color: "gray" },
-            "Use ↑↓ to navigate • d for details • u to undo last vibepoint • o for options • q/Esc to exit"
+            "Use ↑↓ to navigate • c to create • d for details • u to undo last vibepoint • o for options • q/Esc to exit"
           )
         )
       ),
