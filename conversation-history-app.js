@@ -714,7 +714,7 @@ const GitCommitHistoryApp = () => {
           { flexDirection: "column" },
           React.createElement(
             Text,
-            { bold: true, color: "magenta" },
+            { bold: true, color: "blueBright" },
             "Are you sure you want to undo the last vibepoint?"
           ),
           React.createElement(Text, null, " "),
@@ -762,7 +762,7 @@ const GitCommitHistoryApp = () => {
           { flexDirection: "column" },
           React.createElement(
             Text,
-            { bold: true, color: "magenta" },
+            { bold: true, color: "blueBright" },
             "What would you like to name your Vibepoint?"
           ),
           React.createElement(Text, null, " "),
@@ -855,7 +855,7 @@ const GitCommitHistoryApp = () => {
           { flexDirection: "column" },
           React.createElement(
             Text,
-            { bold: true, color: "magenta" },
+            { bold: true, color: "blueBright" },
             "Vibepoint Details"
           ),
           React.createElement(Text, null, " "),
@@ -941,7 +941,7 @@ const GitCommitHistoryApp = () => {
           { flexDirection: "column" },
           React.createElement(
             Text,
-            { bold: true, color: "magenta" },
+            { bold: true, color: "blueBright" },
             "Options"
           ),
           React.createElement(Text, null, " "),
@@ -1072,7 +1072,7 @@ const GitCommitHistoryApp = () => {
           { flexDirection: "column" },
           React.createElement(
             Text,
-            { bold: true, color: "magenta" },
+            { bold: true, color: "blueBright" },
             "Git Commit History"
           ),
           React.createElement(
