@@ -1178,7 +1178,9 @@ const GitCommitHistoryApp = () => {
               ? "red"
               : isSelected
                 ? "yellow"
-                : "white",
+                : hasUncommittedChanges
+                  ? "redBright"
+                  : "white",
             inverse: isSelected && hasUncommittedChanges,
             wrap: "truncate",
           },
