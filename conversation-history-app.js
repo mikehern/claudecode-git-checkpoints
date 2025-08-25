@@ -1237,7 +1237,8 @@ const GitCommitHistoryApp = () => {
         React.createElement(
           Text,
           {
-            color: isSelected ? "yellow" : "white",
+            color: isSelected ? "yellow" : "green",
+            inverse: !isSelected,
             wrap: "truncate",
           },
           `${indicator} ${item.text}`
