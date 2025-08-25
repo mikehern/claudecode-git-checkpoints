@@ -15,6 +15,8 @@ const GitCommitHistoryApp = () => {
   const [windowStart, setWindowStart] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
+  const [showRevertConfirm, setShowRevertConfirm] = useState(false);
+  const [selectedRevertCommit, setSelectedRevertCommit] = useState(null);
   const [showCreateVibepoint, setShowCreateVibepoint] = useState(false);
   const [createVibepointSelectedIndex, setCreateVibepointSelectedIndex] =
     useState(0);
@@ -282,6 +284,17 @@ const GitCommitHistoryApp = () => {
       loadCommits(); // Refresh the commit list
     } catch (error) {
       console.error("Failed to undo commit:", error.message);
+    }
+  };
+
+  // Revert to specific commit (git reset --hard <hash>)
+  const revertToCommit = async (commitHash) => {
+    try {
+      const git = simpleGit(process.cwd());
+      await git.reset(["--hard", commitHash]);
+      loadCommits(); // Refresh the commit list
+    } catch (error) {
+      console.error("Failed to revert to commit:", error.message);
     }
   };
 
@@ -623,6 +636,28 @@ const GitCommitHistoryApp = () => {
       return;
     }
 
+    if (showRevertConfirm) {
+      // Revert confirmation page
+      if (key.escape) {
+        playNextSound();
+        setShowRevertConfirm(false);
+        setSelectedRevertCommit(null);
+        return;
+      }
+
+      if (input === "y") {
+        playRevertSound();
+        setShowRevertConfirm(false);
+        if (selectedRevertCommit) {
+          revertToCommit(selectedRevertCommit.hash);
+        }
+        setSelectedRevertCommit(null);
+        return;
+      }
+
+      return;
+    }
+
     if (showUndoConfirm) {
       // Undo confirmation page
       if (key.escape) {
@@ -724,6 +759,20 @@ const GitCommitHistoryApp = () => {
           getCommitFileChanges(commit.hash).then((changes) => {
             setCommitFileChanges(changes);
           });
+        }
+      }
+      return;
+    }
+
+    if (input === "r") {
+      // Only show revert confirm if a real commit is selected (not "Create vibepoint")
+      if (selectedIndex > 0) {
+        const commitIndex = selectedIndex - 1; // Adjust for "Create vibepoint" offset
+        const commit = commits[commitIndex];
+        if (commit) {
+          playAnimationSound();
+          setSelectedRevertCommit(commit);
+          setShowRevertConfirm(true);
         }
       }
       return;
@@ -838,6 +887,71 @@ const GitCommitHistoryApp = () => {
         : "No recent input found";
 
     return [`1 ${lastInputText}`, "2 I'll customize it", "3 Let Claude decide"];
+  };
+
+  // Render revert confirmation view
+  const renderRevertConfirmView = () => {
+    if (!selectedRevertCommit) return null;
+
+    // Calculate which commits will be lost (all commits before the selected one in the list)
+    const revertCommitIndex = commits.findIndex(commit => commit.hash === selectedRevertCommit.hash);
+    const commitsToLose = commits.slice(0, revertCommitIndex);
+
+    return React.createElement(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      React.createElement(
+        Box,
+        { borderStyle: "single", padding: 1 },
+        React.createElement(
+          Box,
+          { flexDirection: "column" },
+          React.createElement(
+            Text,
+            { bold: true, color: "blueBright" },
+            "Are you sure you want to revert to this vibepoint?"
+          ),
+          React.createElement(Text, null, " "),
+          React.createElement(Text, null, " "),
+
+          React.createElement(Text, null, "You are about to revert to:"),
+          React.createElement(
+            Text,
+            { color: "yellow" },
+            `> ${selectedRevertCommit.text} - ${selectedRevertCommit.timestamp}`
+          ),
+          React.createElement(Text, null, " "),
+
+          commitsToLose.length > 0 && React.createElement(Text, null, "This will permanently remove the following vibepoints:"),
+          ...commitsToLose.map((commit, index) =>
+            React.createElement(
+              Text,
+              { key: index, color: "red" },
+              `• ${commit.text} - ${commit.timestamp}`
+            )
+          ),
+          commitsToLose.length > 0 && React.createElement(Text, null, " "),
+
+          React.createElement(
+            Text,
+            null,
+            commitsToLose.length > 0
+              ? `WARNING: This will permanently delete ${commitsToLose.length} vibepoint${commitsToLose.length > 1 ? 's' : ''} AND all other`
+              : "This will permanently revert to this vibepoint AND all other"
+          ),
+          React.createElement(Text, null, "changes that happened after this point."),
+          React.createElement(Text, null, " "),
+          React.createElement(Text, null, " "),
+
+          React.createElement(
+            Text,
+            { color: "green" },
+            "Press 'y' to confirm revert"
+          ),
+          React.createElement(Text, { color: "gray" }, "Press 'Esc' to cancel")
+        )
+      )
+    );
   };
 
   // Render undo confirmation view
@@ -1275,7 +1389,7 @@ const GitCommitHistoryApp = () => {
           React.createElement(
             Text,
             { bold: true, color: "blueBright" },
-            "Git Commit History"
+            "Vibepoint History"
           ),
           React.createElement(Text, null, " "),
 
@@ -1306,7 +1420,7 @@ const GitCommitHistoryApp = () => {
           React.createElement(
             Text,
             { color: "gray" },
-            "Use ↑↓ to navigate • c to create • d for details • u to undo last vibepoint • o for options • q/Esc to exit"
+            "Use ↑↓ to navigate • c to create • d for details • r to revert • u to undo last vibepoint • o for options • q/Esc to exit"
           )
         )
       ),
@@ -1346,6 +1460,10 @@ const GitCommitHistoryApp = () => {
 
   if (showCreateVibepoint) {
     return renderCreateVibepointView();
+  }
+
+  if (showRevertConfirm) {
+    return renderRevertConfirmView();
   }
 
   if (showUndoConfirm) {
