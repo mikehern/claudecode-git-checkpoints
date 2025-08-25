@@ -151,7 +151,9 @@ const GitCommitHistoryApp = () => {
 
         return {
           text: commit.message || "No commit message", // Subject line only for main page
-          fullText: commit.body ? `${commit.message}\n\n${commit.body}` : commit.message || "No commit message", // Full message for details
+          fullText: commit.body
+            ? `${commit.message}\n\n${commit.body}`
+            : commit.message || "No commit message", // Full message for details
           timestamp: `${formattedDate} at ${formattedTime}`,
           hash: commit.hash,
         };
@@ -193,7 +195,7 @@ const GitCommitHistoryApp = () => {
       // Start success animation for the newly created commit (index 1 because "Create vibepoint" is at 0)
       setSuccessAnimatingIndex(1);
       setSuccessAnimationProgress(0);
-      
+
       // Play vibepoint success sound
       playVibepointSound();
     } catch (error) {
@@ -241,7 +243,7 @@ const GitCommitHistoryApp = () => {
 
       // Apply prefix if enabled
       const finalLabel = options.customPrefix ? `Vibe: ${label}` : label;
-      
+
       // Format commit message: label + empty line + description
       const commitMessage = description.trim()
         ? `${finalLabel}\n\n${description}`
@@ -263,7 +265,7 @@ const GitCommitHistoryApp = () => {
       // Start success animation for the newly created commit
       setSuccessAnimatingIndex(1);
       setSuccessAnimationProgress(0);
-      
+
       // Play vibepoint success sound
       playVibepointSound();
     } catch (error) {
@@ -393,16 +395,16 @@ const GitCommitHistoryApp = () => {
     try {
       const git = simpleGit(process.cwd());
       const status = await git.status();
-      
+
       // Check if there are any uncommitted changes
-      const hasChanges = 
+      const hasChanges =
         status.files.length > 0 ||
         status.staged.length > 0 ||
         status.modified.length > 0 ||
         status.deleted.length > 0 ||
         status.created.length > 0 ||
         status.renamed.length > 0;
-        
+
       setHasUncommittedChanges(hasChanges);
     } catch (error) {
       // If git status fails, assume no changes
@@ -621,7 +623,6 @@ const GitCommitHistoryApp = () => {
       return;
     }
 
-
     if (showUndoConfirm) {
       // Undo confirmation page
       if (key.escape) {
@@ -656,7 +657,7 @@ const GitCommitHistoryApp = () => {
           return newIndex;
         });
       }
-      
+
       if (key.downArrow) {
         setOptionsSelectedIndex((prev) => {
           const newIndex = Math.min(availableOptions.length - 1, prev + 1);
@@ -666,12 +667,15 @@ const GitCommitHistoryApp = () => {
           return newIndex;
         });
       }
-      
+
       if (key.leftArrow || key.rightArrow) {
         const selectedOption = availableOptions[optionsSelectedIndex];
         if (selectedOption) {
           playMenuSound();
-          const newOptions = { ...options, [selectedOption.key]: !options[selectedOption.key] };
+          const newOptions = {
+            ...options,
+            [selectedOption.key]: !options[selectedOption.key],
+          };
           setOptions(newOptions);
           saveOptions(newOptions);
         }
@@ -699,7 +703,6 @@ const GitCommitHistoryApp = () => {
       setShowUndoConfirm(true);
       return;
     }
-
 
     if (input === "c") {
       setShowCreateVibepoint(true);
@@ -766,9 +769,7 @@ const GitCommitHistoryApp = () => {
         return newIndex;
       });
     }
-
   });
-
 
   // Success animation effect for newly created commit on main page (two phases)
   useEffect(() => {
@@ -820,7 +821,11 @@ const GitCommitHistoryApp = () => {
   // Available options
   const availableOptions = [
     { key: "audio", label: "Audio", type: "boolean" },
-    { key: "customPrefix", label: "Prefix custom messages with 'Vibe'", type: "boolean" }
+    {
+      key: "customPrefix",
+      label: "Prefix custom messages with 'Vibe'",
+      type: "boolean",
+    },
   ];
 
   // Create vibepoint options
@@ -868,7 +873,7 @@ const GitCommitHistoryApp = () => {
           React.createElement(
             Text,
             null,
-            "This will permanently undo the last checkpoint AND all other changes"
+            "This will permanently undo the last vibepoint AND all other changes made after it"
           ),
           React.createElement(Text, null, "that happened after it."),
           React.createElement(Text, null, " "),
@@ -934,7 +939,6 @@ const GitCommitHistoryApp = () => {
     );
   };
 
-
   // Render vibepoint details view
   const renderVibepointDetailsView = () => {
     if (!selectedCommitDetails) return null;
@@ -956,12 +960,12 @@ const GitCommitHistoryApp = () => {
           React.createElement(Text, null, " "),
 
           // Split full commit message on actual newlines and render each line
-          ...selectedCommitDetails.fullText.split('\n').map((line, index) =>
+          ...selectedCommitDetails.fullText.split("\n").map((line, index) =>
             React.createElement(
               Text,
-              { 
+              {
                 key: `commit-line-${index}`,
-                wrap: "wrap" 
+                wrap: "wrap",
               },
               line || " " // Empty string becomes space to preserve blank lines
             )
@@ -1045,7 +1049,7 @@ const GitCommitHistoryApp = () => {
           React.createElement(
             Text,
             { bold: true, color: "blueBright" },
-            "Name your checkpoint"
+            "Name your vibepoint"
           ),
           React.createElement(Text, null, " "),
           React.createElement(Text, null, " "),
@@ -1174,13 +1178,14 @@ const GitCommitHistoryApp = () => {
         React.createElement(
           Text,
           {
-            color: isSelected && hasUncommittedChanges
-              ? "red"
-              : isSelected
+            color:
+              isSelected && hasUncommittedChanges
+                ? "red"
+                : isSelected
                 ? "yellow"
                 : hasUncommittedChanges
-                  ? "redBright"
-                  : "white",
+                ? "redBright"
+                : "white",
             inverse: isSelected && hasUncommittedChanges,
             wrap: "truncate",
           },
@@ -1259,10 +1264,10 @@ const GitCommitHistoryApp = () => {
       { flexDirection: "column", padding: 1 },
       React.createElement(
         Box,
-        { 
-          borderStyle: "single", 
+        {
+          borderStyle: "single",
           borderColor: hasUncommittedChanges ? "redBright" : undefined,
-          padding: 1 
+          padding: 1,
         },
         React.createElement(
           Box,
@@ -1301,7 +1306,7 @@ const GitCommitHistoryApp = () => {
           React.createElement(
             Text,
             { color: "gray" },
-            "Use ↑↓ to navigate • d for details • u to undo • o for options • q/Esc to exit"
+            "Use ↑↓ to navigate • d for details • u to undo last vibepoint • o for options • q/Esc to exit"
           )
         )
       ),
@@ -1311,7 +1316,7 @@ const GitCommitHistoryApp = () => {
         React.createElement(
           Text,
           { color: "red" },
-          "Files changed without a checkpoint"
+          "Files changed without a vibepoint"
         ),
 
       // Blank line
@@ -1342,7 +1347,6 @@ const GitCommitHistoryApp = () => {
   if (showCreateVibepoint) {
     return renderCreateVibepointView();
   }
-
 
   if (showUndoConfirm) {
     return renderUndoConfirmView();
