@@ -482,6 +482,12 @@ const GitCommitHistoryApp = () => {
       return;
     }
 
+    if (input === "c") {
+      setShowCreateVibepoint(true);
+      setCreateVibepointSelectedIndex(0);
+      return;
+    }
+
     if (key.return) {
       if (selectedIndex === 0) {
         // Selected "Create vibepoint"
