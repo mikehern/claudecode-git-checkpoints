@@ -1475,21 +1475,14 @@ const GitCommitHistoryApp = () => {
         )
       ),
 
-      // Footer with uncommitted changes warning
-      hasUncommittedChanges &&
-        React.createElement(
-          Text,
-          { color: "red" },
-          "Files changed without a vibepoint"
-        ),
-
       // Blank line
       React.createElement(Text, null, " "),
 
-      // Commit count with blue check mark
+      // Commit count with blue check mark and uncommitted changes warning
       React.createElement(
         Text,
         null,
+        hasUncommittedChanges && React.createElement(Text, { color: "red" }, "! "),
         `${commits.length} `,
         React.createElement(Text, { color: "blue" }, "✓")
       )
