@@ -732,8 +732,8 @@ const GitCommitHistoryApp = () => {
           playMenuSound();
         }
         // Adjust window if selection goes below visible area
-        if (newIndex >= windowStart + 4) {
-          setWindowStart(newIndex - 3);
+        if (newIndex >= windowStart + 3) {
+          setWindowStart(newIndex - 2);
         }
         return newIndex;
       });
@@ -820,8 +820,8 @@ const GitCommitHistoryApp = () => {
     ...commits.map((commit) => ({ type: "commit", ...commit })),
   ];
 
-  // Get visible items (sliding window)
-  const visibleItems = displayItems.slice(windowStart, windowStart + 4);
+  // Get visible items (sliding window) - reduced to 3 to accommodate two-line commits
+  const visibleItems = displayItems.slice(windowStart, windowStart + 3);
 
   // Available options
   const availableOptions = [
@@ -1229,20 +1229,20 @@ const GitCommitHistoryApp = () => {
       );
     }
 
-    // Handle regular commit
+    // Handle regular commit - now using two lines
     const commitIndex = globalIndex - 1; // Adjust for "Create vibepoint" offset
     const isAnimating = commitIndex === animatingIndex;
     const isSuccessAnimating = globalIndex === successAnimatingIndex;
 
-    // Truncate text to prevent wrapping issues (leave space for indicator, timestamp)
+    // Truncate text to prevent wrapping issues
     const maxTextWidth = 80; // Adjust based on typical terminal width
     let truncatedText = item.text;
     if (truncatedText.length > maxTextWidth) {
       truncatedText = truncatedText.slice(0, maxTextWidth - 3) + "...";
     }
 
-    // Build the complete line as a single string to avoid layout issues
-    let completeLine;
+    // Build the commit message line
+    let commitMessageLine;
 
     if (isSuccessAnimating) {
       // Apply two-phase success animation
@@ -1266,7 +1266,7 @@ const GitCommitHistoryApp = () => {
           }
         })
         .join("");
-      completeLine = `${indicator} ${animatedText} - ${item.timestamp}`;
+      commitMessageLine = `${indicator} ${animatedText}`;
     } else if (isAnimating) {
       // Apply blue to teal animation only to the main text
       const animatedText = truncatedText
@@ -1279,21 +1279,29 @@ const GitCommitHistoryApp = () => {
           }
         })
         .join("");
-      completeLine = `${indicator} ${animatedText} - ${item.timestamp}`;
+      commitMessageLine = `${indicator} ${animatedText}`;
     } else {
-      completeLine = `${indicator} ${truncatedText} - ${item.timestamp}`;
+      commitMessageLine = `${indicator} ${truncatedText}`;
     }
 
     return React.createElement(
       Box,
-      { key: globalIndex, width: "100%" },
+      { key: globalIndex, width: "100%", flexDirection: "column" },
       React.createElement(
         Text,
         {
           color: isSelected ? "yellow" : "white",
           wrap: "truncate",
         },
-        completeLine
+        commitMessageLine
+      ),
+      React.createElement(
+        Text,
+        {
+          color: "gray",
+          wrap: "truncate",
+        },
+        `    ${item.timestamp}`
       )
     );
   };
@@ -1345,14 +1353,14 @@ const GitCommitHistoryApp = () => {
 
           React.createElement(Text, null, " "),
 
-          displayItems.length > 4 &&
+          displayItems.length > 3 &&
             React.createElement(
               Text,
               { color: "gray" },
               `Showing ${windowStart + 1}-${Math.min(
-                windowStart + 4,
+                windowStart + 3,
                 displayItems.length
-              )} of ${displayItems.length} items (${commits.length} commits)`
+              )} of ${commits.length} checkpoints`
             )
         )
       ),
