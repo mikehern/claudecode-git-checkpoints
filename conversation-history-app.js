@@ -579,7 +579,7 @@ const GitCommitHistoryApp = () => {
               setTimeout(() => {
                 setSuccessAnimationPhase(2);
                 setSuccessAnimationProgress(0);
-              }, 200); // Brief pause when fully green
+              }, 50); // Brief pause when fully green
             } else {
               // Phase 2 complete, reset everything
               setTimeout(() => {
