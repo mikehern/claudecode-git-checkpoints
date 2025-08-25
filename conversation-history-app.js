@@ -29,6 +29,10 @@ const GitCommitHistoryApp = () => {
     modified: [],
     removed: [],
   });
+  const [showCustomLabel, setShowCustomLabel] = useState(false);
+  const [showCustomDescription, setShowCustomDescription] = useState(false);
+  const [customLabel, setCustomLabel] = useState("");
+  const [customDescription, setCustomDescription] = useState("");
   const [successAnimatingIndex, setSuccessAnimatingIndex] = useState(-1);
   const [successAnimationProgress, setSuccessAnimationProgress] = useState(0);
   const [successAnimationPhase, setSuccessAnimationPhase] = useState(1); // 1 = turning green, 2 = turning back to default
@@ -204,6 +208,39 @@ const GitCommitHistoryApp = () => {
     } catch (error) {
       console.error("Failed to get commit changes:", error.message);
       return { added: [], modified: [], removed: [] };
+    }
+  };
+
+  // Create custom vibepoint with label and description
+  const createCustomVibepoint = async (label, description) => {
+    try {
+      setCreateVibepointError(null);
+      const git = simpleGit(process.cwd());
+
+      // Format commit message: label + empty line + description
+      const commitMessage = description.trim()
+        ? `${label}\n\n${description}`
+        : label;
+
+      // Stage all changes
+      await git.add(".");
+
+      // Commit with the formatted message
+      await git.commit(commitMessage);
+
+      // Refresh the commit list and return to main page
+      loadCommits();
+      setShowCustomLabel(false);
+      setShowCustomDescription(false);
+      setCustomLabel("");
+      setCustomDescription("");
+
+      // Start success animation for the newly created commit
+      setSuccessAnimatingIndex(1);
+      setSuccessAnimationProgress(0);
+    } catch (error) {
+      console.error("Failed to create custom vibepoint:", error.message);
+      setCreateVibepointError(`Error: ${error.message}`);
     }
   };
 
@@ -389,6 +426,61 @@ const GitCommitHistoryApp = () => {
 
   // Handle keyboard input
   useInput((input, key) => {
+    if (showCustomLabel) {
+      // Custom label input page
+      if (key.escape) {
+        playNextSound();
+        setShowCustomLabel(false);
+        setCustomLabel("");
+        return;
+      }
+
+      if (key.return) {
+        if (customLabel.trim()) {
+          playAnimationSound();
+          setShowCustomLabel(false);
+          setShowCustomDescription(true);
+        }
+        return;
+      }
+
+      // Handle text input
+      if (key.backspace || key.delete) {
+        setCustomLabel((prev) => prev.slice(0, -1));
+      } else if (input && input.length === 1 && !key.ctrl && !key.meta) {
+        setCustomLabel((prev) => prev + input);
+      }
+
+      return;
+    }
+
+    if (showCustomDescription) {
+      // Custom description input page
+      if (key.escape) {
+        playNextSound();
+        setShowCustomDescription(false);
+        setShowCustomLabel(true); // Go back to label screen
+        return;
+      }
+
+      if (key.ctrl && input === "d") {
+        playAnimationSound();
+        createCustomVibepoint(customLabel, customDescription);
+        return;
+      }
+
+      // Handle text input including multiline
+      if (key.backspace || key.delete) {
+        setCustomDescription((prev) => prev.slice(0, -1));
+      } else if (key.return) {
+        setCustomDescription((prev) => prev + "\n");
+      } else if (input && input.length === 1 && !key.ctrl && !key.meta) {
+        setCustomDescription((prev) => prev + input);
+      }
+
+      return;
+    }
+
     if (showVibepointDetails) {
       // Vibepoint details page navigation
       if (key.escape) {
@@ -439,7 +531,11 @@ const GitCommitHistoryApp = () => {
           setCreateVibepointError(null);
           createVibepointWithLastInput();
         } else if (createVibepointSelectedIndex === 1) {
-          // TODO: Navigate to customize page
+          // Navigate to custom label page
+          setShowCreateVibepoint(false);
+          setShowCustomLabel(true);
+          setCustomLabel("");
+          setCustomDescription("");
         } else if (createVibepointSelectedIndex === 2) {
           // TODO: Navigate to Claude decide page
         }
@@ -455,7 +551,11 @@ const GitCommitHistoryApp = () => {
       } else if (input === "2") {
         setCreateVibepointSelectedIndex(1);
         playAnimationSound();
-        // TODO: Navigate to customize page
+        // Navigate to custom label page
+        setShowCreateVibepoint(false);
+        setShowCustomLabel(true);
+        setCustomLabel("");
+        setCustomDescription("");
       } else if (input === "3") {
         setCreateVibepointSelectedIndex(2);
         playAnimationSound();
@@ -928,6 +1028,88 @@ const GitCommitHistoryApp = () => {
     );
   };
 
+  // Render custom label input view
+  const renderCustomLabelView = () => {
+    const charactersRemaining = Math.max(0, 72 - customLabel.length);
+
+    return React.createElement(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      React.createElement(
+        Box,
+        { borderStyle: "single", padding: 1 },
+        React.createElement(
+          Box,
+          { flexDirection: "column" },
+          React.createElement(
+            Text,
+            { bold: true, color: "blueBright" },
+            "Name your checkpoint"
+          ),
+          React.createElement(Text, null, " "),
+          React.createElement(Text, null, " "),
+
+          React.createElement(Text, null, `Label: ${customLabel}`),
+          React.createElement(
+            Text,
+            { color: "gray" },
+            charactersRemaining.toString()
+          ),
+          React.createElement(Text, null, " "),
+          React.createElement(Text, null, " "),
+          React.createElement(
+            Text,
+            { color: "gray" },
+            "ESC to go back, ENTER to confirm"
+          )
+        )
+      )
+    );
+  };
+
+  // Render custom description input view
+  const renderCustomDescriptionView = () => {
+    const labelDisplay = `Label: ${customLabel}`;
+
+    return React.createElement(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      React.createElement(
+        Box,
+        { borderStyle: "single", padding: 1 },
+        React.createElement(
+          Box,
+          { flexDirection: "column" },
+          React.createElement(
+            Text,
+            { bold: true, color: "blueBright" },
+            "Add a description (optional)"
+          ),
+          React.createElement(Text, null, " "),
+          React.createElement(Text, null, " "),
+
+          React.createElement(Text, null, labelDisplay),
+          React.createElement(Text, null, "Description:"),
+          React.createElement(
+            Box,
+            { borderStyle: "single", padding: 1, minHeight: 3 },
+            React.createElement(
+              Text,
+              { wrap: "wrap" },
+              customDescription || " "
+            )
+          ),
+          React.createElement(Text, null, " "),
+          React.createElement(
+            Text,
+            { color: "gray" },
+            "ESC to go back, Ctrl+D to confirm"
+          )
+        )
+      )
+    );
+  };
+
   // Render options view
   const renderOptionsView = () => {
     return React.createElement(
@@ -1141,6 +1323,14 @@ const GitCommitHistoryApp = () => {
       )
     );
   };
+
+  if (showCustomLabel) {
+    return renderCustomLabelView();
+  }
+
+  if (showCustomDescription) {
+    return renderCustomDescriptionView();
+  }
 
   if (showVibepointDetails) {
     return renderVibepointDetailsView();
