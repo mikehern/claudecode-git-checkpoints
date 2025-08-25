@@ -1419,15 +1419,12 @@ const GitCommitHistoryApp = () => {
         )
       ),
 
-      // Footer with 72-character preview of last Claude input
-      lastClaudeInput &&
-        lastClaudeInput.text &&
+      // Footer with uncommitted changes warning
+      hasUncommittedChanges &&
         React.createElement(
           Text,
-          { color: "gray" },
-          lastClaudeInput.text.length > 72
-            ? lastClaudeInput.text.slice(0, 72)
-            : lastClaudeInput.text
+          { color: "red" },
+          "Files changed without a checkpoint"
         ),
 
       // Blank line

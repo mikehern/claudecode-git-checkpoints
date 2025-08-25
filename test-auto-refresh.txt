@@ -1,5 +1,2 @@
 test file for auto-refresh
 
-second test
-
-third test
