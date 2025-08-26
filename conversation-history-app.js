@@ -1308,35 +1308,35 @@ Return valid JSON only:
     }
   }, [successAnimatingIndex, successAnimationPhase, commits]);
 
-  // Loading animation effect for Claude Decide
-  useEffect(() => {
-    if (showClaudeDecide && claudeDecideState === 'loading') {
-      const totalChars = loadingAnimationText.length;
-      const interval = setInterval(() => {
-        setLoadingAnimationProgress((prev) => {
-          const next = prev + 1;
-          if (next >= totalChars) {
-            // Cycle complete, reverse direction
-            if (loadingAnimationPhase === 1) {
-              setTimeout(() => {
-                setLoadingAnimationPhase(2);
-                setLoadingAnimationProgress(0);
-              }, 100); // Brief pause
-            } else {
-              setTimeout(() => {
-                setLoadingAnimationPhase(1);
-                setLoadingAnimationProgress(0);
-              }, 100);
-            }
-            return totalChars;
-          }
-          return next;
-        });
-      }, 30); // 30ms per character for smooth animation
+  // Loading animation effect for Claude Decide - DISABLED (keeping static orange text)
+  // useEffect(() => {
+  //   if (showClaudeDecide && claudeDecideState === 'loading') {
+  //     const totalChars = loadingAnimationText.length;
+  //     const interval = setInterval(() => {
+  //       setLoadingAnimationProgress((prev) => {
+  //         const next = prev + 1;
+  //         if (next >= totalChars) {
+  //           // Cycle complete, reverse direction
+  //           if (loadingAnimationPhase === 1) {
+  //             setTimeout(() => {
+  //               setLoadingAnimationPhase(2);
+  //               setLoadingAnimationProgress(0);
+  //             }, 100); // Brief pause
+  //           } else {
+  //             setTimeout(() => {
+  //               setLoadingAnimationPhase(1);
+  //               setLoadingAnimationProgress(0);
+  //             }, 100);
+  //           }
+  //           return totalChars;
+  //         }
+  //         return next;
+  //       });
+  //     }, 30); // 30ms per character for smooth animation
 
-      return () => clearInterval(interval);
-    }
-  }, [showClaudeDecide, claudeDecideState, loadingAnimationPhase, loadingAnimationText]);
+  //     return () => clearInterval(interval);
+  //   }
+  // }, [showClaudeDecide, claudeDecideState, loadingAnimationPhase, loadingAnimationText]);
 
   // Create display items ("Create vibepoint" + commits)
   const displayItems = [
@@ -1814,33 +1814,15 @@ Return valid JSON only:
   };
 
   // Render loading animation for Claude Decide
-  const renderLoadingAnimation = () => {
-    const animatedText = loadingAnimationText
-      .split('')
-      .map((char, charIndex) => {
-        if (loadingAnimationPhase === 1) {
-          // Phase 1: Orange → White (left to right)
-          if (charIndex < loadingAnimationProgress) {
-            return char; // white (default)
-          } else {
-            return chalk.hex('#FFA500')(char); // orange
-          }
-        } else {
-          // Phase 2: White → Orange (left to right)
-          if (charIndex < loadingAnimationProgress) {
-            return chalk.hex('#FFA500')(char); // orange
-          } else {
-            return char; // white
-          }
-        }
-      })
-      .join('');
-    
-    return animatedText;
+  const renderLoadingText = () => {
+    // Simply return the entire loading text in orange color (no animation)
+    return chalk.hex('#FFA500')(loadingAnimationText);
   };
 
-  // Render Claude Decide loading view
-  const renderClaudeDecideLoadingView = () => {
+  // Unified render function for Claude Decide (handles both loading and suggestions)
+  const renderClaudeDecideView = () => {
+    const isLoading = claudeDecideState === 'loading';
+    
     return React.createElement(
       Box,
       { flexDirection: "column", padding: 1 },
@@ -1850,13 +1832,46 @@ Return valid JSON only:
         React.createElement(
           Box,
           { flexDirection: "column" },
-          React.createElement(Text, null, " "),
           React.createElement(
             Text,
-            { wrap: "wrap" },
-            renderLoadingAnimation()
+            { bold: true, color: "blueBright" },
+            "Claude's Suggestions"
           ),
-          React.createElement(Text, null, " ")
+          React.createElement(Text, null, " "),
+          
+          // Conditionally render loading text or suggestions
+          ...(isLoading ? 
+            [
+              React.createElement(
+                Text,
+                { key: "loading" },
+                renderLoadingText()
+              )
+            ] :
+            [
+              ...claudeSuggestions.map((suggestion, index) => {
+                const isSelected = index === selectedSuggestionIndex;
+                const indicator = isSelected ? ">" : " ";
+                const label = suggestion.type === 'vibecoder' ? 'Vibecoder' : 'Prototyper';
+                
+                return React.createElement(
+                  Text,
+                  {
+                    key: index,
+                    color: isSelected ? "yellow" : "white",
+                    wrap: "wrap"
+                  },
+                  `${indicator} ${index + 1} ${label}: ${suggestion.message}`
+                );
+              }),
+              
+              React.createElement(Text, { key: "spacer" }, " "),
+              React.createElement(
+                Text,
+                { key: "help", color: "gray" },
+                "Press 1-2 to select • Enter to confirm • Esc to go back"
+              )
+            ])
         )
       )
     );
@@ -2187,10 +2202,8 @@ Return valid JSON only:
   }
 
   if (showClaudeDecide) {
-    if (claudeDecideState === 'loading') {
-      return renderClaudeDecideLoadingView();
-    } else if (claudeDecideState === 'suggestions') {
-      return renderClaudeDecideSuggestionsView();  
+    if (claudeDecideState === 'loading' || claudeDecideState === 'suggestions') {
+      return renderClaudeDecideView(); // Unified function handles both states
     } else if (claudeDecideState === 'error') {
       return renderClaudeDecideErrorView();
     }
