@@ -2046,7 +2046,7 @@ Return valid JSON only:
     if (item.type === "create") {
       return React.createElement(
         Box,
-        { key: "create-vibepoint", width: "100%" },
+        { key: "create-vibepoint", width: "100%", flexDirection: "column" },
         React.createElement(
           Text,
           {
@@ -2062,6 +2062,14 @@ Return valid JSON only:
             wrap: "truncate",
           },
           `${indicator} ${item.text}`
+        ),
+        React.createElement(
+          Text,
+          {
+            color: "gray",
+            wrap: "truncate",
+          },
+          "    Now"
         )
       );
     }
