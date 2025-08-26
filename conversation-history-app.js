@@ -657,6 +657,8 @@ Return valid JSON only:
                 !message.message.content.startsWith("Caveat:") &&
                 !message.message.content.includes("<command-name>") &&
                 !message.message.content.includes("<local-command-stdout>") &&
+                !message.message.content.startsWith("<task>") &&
+                !message.message.content.includes("Generate two distinct commit message suggestions") &&
                 message.message.content !==
                   "[Request interrupted by user for tool use]"
               ) {
