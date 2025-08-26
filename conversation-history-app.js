@@ -2184,7 +2184,7 @@ Return valid JSON only:
                           color: isSelected ? "yellow" : "white",
                           wrap: "wrap",
                         },
-                        suggestion.message
+                        `"${suggestion.message}"`
                       )
                     )
                   );
