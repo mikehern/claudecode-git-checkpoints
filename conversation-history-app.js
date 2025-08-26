@@ -1455,6 +1455,25 @@ Return valid JSON only:
       return;
     }
 
+    // Handle git initialization when not in a git repository
+    if (isGitRepository === false && input === "y") {
+      // Initialize git repository
+      const initializeGitRepository = async () => {
+        try {
+          const git = simpleGit(process.cwd());
+          await git.init();
+          // Re-check git repository status
+          setIsGitRepository(true);
+          playAnimationSound();
+        } catch (error) {
+          console.error("Failed to initialize git repository:", error.message);
+          // Stay in the error state
+        }
+      };
+      initializeGitRepository();
+      return;
+    }
+
     // Main page navigation
     if (input === "x") {
       playExitSound();
@@ -2564,12 +2583,22 @@ Return valid JSON only:
             "Vibepoints can only run in directories that are git repositories."
           ),
           React.createElement(Text, null, " "),
+          React.createElement(Text, null, "Our project directory is:"),
+          React.createElement(Text, { color: "yellow" }, process.cwd()),
+          React.createElement(Text, null, " "),
           React.createElement(
             Text,
-            { color: "gray" },
-            "Initialize a git repository with: git init"
+            null,
+            "Do you want to create a git repository here?"
           ),
           React.createElement(Text, null, " "),
+          React.createElement(
+            Text,
+            null,
+            "When you run Claude Code, it should be run from this same directory. Make sure it only includes the subdirectories and files you want to change during coding sessions"
+          ),
+          React.createElement(Text, null, " "),
+          React.createElement(Text, { color: "green" }, "Press 'y' to confirm"),
           React.createElement(Text, { color: "gray" }, "Press 'x' to exit")
         )
       )
