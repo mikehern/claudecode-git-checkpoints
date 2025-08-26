@@ -8,6 +8,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { fileURLToPath } from "url";
+import { execSync } from "child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,6 +49,17 @@ const GitCommitHistoryApp = () => {
     modified: [],
     removed: [],
   });
+  
+  // Claude Decide feature state
+  const [showClaudeDecide, setShowClaudeDecide] = useState(false);
+  const [claudeDecideState, setClaudeDecideState] = useState('loading'); // 'loading' | 'suggestions' | 'error'
+  const [claudeSuggestions, setClaudeSuggestions] = useState([]);
+  const [claudeDecideError, setClaudeDecideError] = useState(null);
+  const [loadingAnimationText, setLoadingAnimationText] = useState('* Analyzing your last sent message and file changes');
+  const [loadingAnimationProgress, setLoadingAnimationProgress] = useState(0);
+  const [loadingAnimationPhase, setLoadingAnimationPhase] = useState(1); // 1 = orange->white, 2 = white->orange
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0); // For suggestions navigation
+  
   const { exit } = useApp();
 
   const optionsPath = path.join(os.homedir(), ".config", "vibepoints", "options.json");
@@ -279,6 +291,52 @@ const GitCommitHistoryApp = () => {
     }
   };
 
+  // Get git diff for Claude Decide context
+  const getGitDiff = async () => {
+    try {
+      const git = simpleGit(process.cwd());
+      const status = await git.status();
+      
+      if (status.staged.length > 0) {
+        // Get staged changes (what will be committed)
+        return await git.diff(['--staged']);
+      } else {
+        // Get all unstaged changes
+        return await git.diff();
+      }
+    } catch (error) {
+      console.error('Failed to get git diff:', error);
+      return '';
+    }
+  };
+
+  // Gather context for Claude Decide
+  const gatherClaudeContext = async () => {
+    try {
+      // 1. Get git diff of current changes
+      const diff = await getGitDiff();
+      
+      // 2. Current file changes (already have this)
+      const fileChanges = await getCurrentFileChanges();
+      
+      // 3. Last Claude input (already have this)
+      const lastInput = lastClaudeInput?.text || '';
+      
+      // 4. Recent commit context for patterns
+      const recentCommits = commits.slice(0, 3).map(c => c.text);
+      
+      return {
+        diff,
+        fileChanges,
+        lastInput,
+        recentCommits
+      };
+    } catch (error) {
+      console.error('Context gathering failed:', error);
+      throw new Error('Failed to analyze project changes');
+    }
+  };
+
   // Create custom vibepoint with label and description
   const createCustomVibepoint = async (label, description) => {
     try {
@@ -315,6 +373,179 @@ const GitCommitHistoryApp = () => {
     } catch (error) {
       console.error("Failed to create custom vibepoint:", error.message);
       setCreateVibepointError(`Error: ${error.message}`);
+    }
+  };
+
+  // Generate commit message suggestions using Claude CLI
+  const generateCommitSuggestions = async (context) => {
+    const prompt = `
+<task>
+Generate two distinct commit message suggestions for the changes about to be committed.
+</task>
+
+<context>
+<user_intent>
+${context.lastInput || 'No recent user message found'}
+</user_intent>
+
+<file_changes>
+Added files: ${context.fileChanges.added.join(', ') || 'none'}
+Modified files: ${context.fileChanges.modified.join(', ') || 'none'}  
+Removed files: ${context.fileChanges.removed.join(', ') || 'none'}
+</file_changes>
+
+<code_diff>
+${context.diff ? context.diff.slice(0, 1000) : 'No diff available'}
+${context.diff && context.diff.length > 1000 ? '\\n[...truncated...]' : ''}
+</code_diff>
+
+<recent_commits>
+Recent commit history for context:
+${context.recentCommits.length > 0 ? context.recentCommits.map(c => `• ${c}`).join('\\n') : '• No recent commits'}
+</recent_commits>
+</context>
+
+<instructions>
+Based on the user's intent and the actual code changes, create two commit messages:
+
+<vibecoder_style>
+Natural, conversational language that connects the user's request to what was implemented.
+Example: "Added user authentication to protect dashboard access"
+</vibecoder_style>
+
+<prototyper_style>  
+Conventional commits format with technical precision.
+Use: feat|fix|docs|refactor|test|chore|style: brief technical description
+Example: "feat: implement JWT-based authentication middleware"
+</prototyper_style>
+</instructions>
+
+<output_format>
+Return valid JSON only:
+{
+  "vibecoder": "your natural language message",
+  "prototyper": "your conventional commit message"
+}
+</output_format>
+`;
+
+    try {
+      // Use claude CLI with -p flag and JSON output
+      const result = execSync(
+        `echo ${JSON.stringify(prompt)} | claude -p --output-format json --max-turns 1`,
+        { 
+          encoding: 'utf8',
+          timeout: 30000, // 30 second timeout
+          cwd: process.cwd() // Run in current directory
+        }
+      );
+
+      // Parse the JSON response
+      const debugFile = '/tmp/claude-decide-debug.log';
+      fs.writeFileSync(debugFile, `Raw Claude CLI response:\n${result}\n\n`, { flag: 'w' });
+      
+      const response = JSON.parse(result.trim());
+      fs.appendFileSync(debugFile, `Parsed response:\n${JSON.stringify(response, null, 2)}\n\n`);
+      
+      // Extract the actual result content from Claude CLI response
+      let suggestions;
+      if (response.result) {
+        // Parse the JSON from the markdown code block
+        const jsonMatch = response.result.match(/```json\n([\s\S]*?)\n```/);
+        if (jsonMatch) {
+          suggestions = JSON.parse(jsonMatch[1]);
+        }
+      }
+      
+      // Extract suggestions with fallback handling
+      const vibecoder = suggestions?.vibecoder || 'Generated vibecoder suggestion';
+      const prototyper = suggestions?.prototyper || 'Generated prototyper suggestion';
+      
+      fs.appendFileSync(debugFile, `Extracted vibecoder: ${vibecoder}\n`);
+      fs.appendFileSync(debugFile, `Extracted prototyper: ${prototyper}\n`);
+      
+      return [
+        { type: 'vibecoder', message: vibecoder },
+        { type: 'prototyper', message: prototyper }
+      ];
+      
+    } catch (error) {
+      console.error('Claude CLI call failed:', error);
+      
+      // Better error messages based on CLI errors
+      if (error.message.includes('command not found')) {
+        throw new Error('Claude Code CLI not installed. Install with: npm install -g @anthropic-ai/claude-code');
+      } else if (error.message.includes('ANTHROPIC_API_KEY')) {
+        throw new Error('Claude Code not authenticated. Run: claude auth');
+      } else if (error.message.includes('timeout')) {
+        throw new Error('Claude API request timed out');
+      } else {
+        throw new Error(`Claude CLI error: ${error.message}`);
+      }
+    }
+  };
+
+  // Handle Claude Decide flow
+  const handleClaudeDecideFlow = async () => {
+    try {
+      // Gather context
+      const context = await gatherClaudeContext();
+      
+      // Call Claude CLI
+      const suggestions = await generateCommitSuggestions(context);
+      
+      // Transition to suggestions view
+      setClaudeSuggestions(suggestions);
+      setClaudeDecideState('suggestions');
+    } catch (error) {
+      // CLI-specific error handling
+      if (error.message.includes('not installed')) {
+        setClaudeDecideError('Claude Code CLI not found. Please install Claude Code first.');
+      } else if (error.message.includes('not authenticated')) {
+        setClaudeDecideError('Claude Code not authenticated. Run "claude auth" first.');
+      } else if (error.message.includes('timeout')) {
+        setClaudeDecideError('Request timed out. Please try again.');
+      } else {
+        setClaudeDecideError(`Error: ${error.message}`);
+      }
+      setClaudeDecideState('error');
+    }
+  };
+
+  // Create Claude Decide vibepoint
+  const createClaudeDecideVibepoint = async (message) => {
+    try {
+      setClaudeDecideError(null);
+      const git = simpleGit(process.cwd());
+
+      // Stage all changes
+      await git.add(".");
+
+      // Commit with the selected Claude message
+      await git.commit(message);
+
+      // Clean up Claude Decide state
+      setShowClaudeDecide(false);
+      setClaudeDecideState('loading'); // Reset for next time
+      setClaudeSuggestions([]);
+      setClaudeDecideError(null);
+      setSelectedSuggestionIndex(0);
+
+      // Refresh the commit list and return to main page
+      loadCommits();
+
+      // Start success animation for the newly created commit (index 1 because "Create vibepoint" is at 0)
+      setSuccessAnimatingIndex(1);
+      setSuccessAnimationProgress(0);
+
+      // Play vibepoint success sound
+      playVibepointSound();
+    } catch (error) {
+      console.error("Failed to create Claude decide vibepoint:", error.message);
+      
+      // Stay in Claude Decide flow for error handling
+      setClaudeDecideError(`Failed to create vibepoint: ${error.message}`);
+      setClaudeDecideState('error');
     }
   };
 
@@ -564,6 +795,125 @@ const GitCommitHistoryApp = () => {
 
   // Handle keyboard input
   useInput((input, key) => {
+    if (showClaudeDecide && claudeDecideState === 'loading') {
+      // Loading state - only allow escape
+      if (key.escape) {
+        playNextSound();
+        setShowClaudeDecide(false);
+        setShowCreateVibepoint(true);
+        return;
+      }
+      return; // Block all other input during loading
+    }
+
+    if (showClaudeDecide && claudeDecideState === 'suggestions') {
+      // Suggestions screen navigation
+      if (key.escape) {
+        playNextSound();
+        setShowClaudeDecide(false);
+        setShowCreateVibepoint(true);
+        return;
+      }
+      
+      if (key.upArrow) {
+        setSelectedSuggestionIndex((prev) => {
+          const newIndex = Math.max(0, prev - 1);
+          if (newIndex !== prev) playMenuSound();
+          return newIndex;
+        });
+        return;
+      }
+      
+      if (key.downArrow) {
+        setSelectedSuggestionIndex((prev) => {
+          const newIndex = Math.min(claudeSuggestions.length - 1, prev + 1);
+          if (newIndex !== prev) playMenuSound();
+          return newIndex;
+        });
+        return;
+      }
+      
+      if (key.return) {
+        const selectedMessage = claudeSuggestions[selectedSuggestionIndex].message;
+        playAnimationSound();
+        
+        // Create commit with selected message using Claude Decide flow
+        createClaudeDecideVibepoint(selectedMessage);
+        return;
+      }
+      
+      // Number key selection (1-2)
+      if (input === "1" && claudeSuggestions.length >= 1) {
+        setSelectedSuggestionIndex(0);
+        const selectedMessage = claudeSuggestions[0].message;
+        playAnimationSound();
+        createClaudeDecideVibepoint(selectedMessage);
+        return;
+      }
+      
+      if (input === "2" && claudeSuggestions.length >= 2) {
+        setSelectedSuggestionIndex(1);
+        const selectedMessage = claudeSuggestions[1].message;
+        playAnimationSound();
+        createClaudeDecideVibepoint(selectedMessage);
+        return;
+      }
+      
+      return;
+    }
+
+    if (showClaudeDecide && claudeDecideState === 'error') {
+      const isCommitError = claudeDecideError?.includes('Failed to create vibepoint');
+      
+      if (input === 'r') {
+        if (isCommitError) {
+          // Retry the commit with the same message
+          const lastSelectedMessage = claudeSuggestions[selectedSuggestionIndex]?.message;
+          if (lastSelectedMessage) {
+            setClaudeDecideError(null);
+            createClaudeDecideVibepoint(lastSelectedMessage);
+          }
+        } else {
+          // Retry the Claude analysis flow
+          setClaudeDecideState('loading');
+          setClaudeDecideError(null);
+          handleClaudeDecideFlow();
+        }
+        return;
+      }
+      
+      if (input === 'b' && isCommitError) {
+        // Go back to suggestions screen
+        setClaudeDecideError(null);
+        setClaudeDecideState('suggestions');
+        return;
+      }
+      
+      if (input === 'c') {
+        // Fallback to custom input
+        setShowClaudeDecide(false);
+        setClaudeDecideState('loading'); // Reset state
+        setClaudeSuggestions([]);
+        setClaudeDecideError(null);
+        setSelectedSuggestionIndex(0);
+        setShowCustomLabel(true);
+        return;
+      }
+      
+      if (key.escape) {
+        // Back to create vibepoint menu
+        setShowClaudeDecide(false);
+        setClaudeDecideState('loading'); // Reset state
+        setClaudeSuggestions([]);
+        setClaudeDecideError(null);
+        setSelectedSuggestionIndex(0);
+        setShowCreateVibepoint(true);
+        return;
+      }
+      
+      return;
+    }
+
     if (showCustomLabel) {
       // Custom label input page
       if (key.escape) {
@@ -681,7 +1031,14 @@ const GitCommitHistoryApp = () => {
           setCustomLabel("");
           setCustomDescription("");
         } else if (createVibepointSelectedIndex === 2) {
-          // TODO: Navigate to Claude decide page
+          // Navigate to Claude decide loading
+          setShowCreateVibepoint(false);
+          setShowClaudeDecide(true);
+          setClaudeDecideState('loading');
+          setClaudeDecideError(null);
+          
+          // Start the context gathering and CLI call
+          handleClaudeDecideFlow();
         }
       }
 
@@ -703,7 +1060,14 @@ const GitCommitHistoryApp = () => {
       } else if (input === "3") {
         setCreateVibepointSelectedIndex(2);
         playAnimationSound();
-        // TODO: Navigate to Claude decide page
+        // Navigate to Claude decide loading
+        setShowCreateVibepoint(false);
+        setShowClaudeDecide(true);
+        setClaudeDecideState('loading');
+        setClaudeDecideError(null);
+        
+        // Start the context gathering and CLI call
+        handleClaudeDecideFlow();
       }
 
       return;
@@ -943,6 +1307,36 @@ const GitCommitHistoryApp = () => {
       return () => clearInterval(interval);
     }
   }, [successAnimatingIndex, successAnimationPhase, commits]);
+
+  // Loading animation effect for Claude Decide
+  useEffect(() => {
+    if (showClaudeDecide && claudeDecideState === 'loading') {
+      const totalChars = loadingAnimationText.length;
+      const interval = setInterval(() => {
+        setLoadingAnimationProgress((prev) => {
+          const next = prev + 1;
+          if (next >= totalChars) {
+            // Cycle complete, reverse direction
+            if (loadingAnimationPhase === 1) {
+              setTimeout(() => {
+                setLoadingAnimationPhase(2);
+                setLoadingAnimationProgress(0);
+              }, 100); // Brief pause
+            } else {
+              setTimeout(() => {
+                setLoadingAnimationPhase(1);
+                setLoadingAnimationProgress(0);
+              }, 100);
+            }
+            return totalChars;
+          }
+          return next;
+        });
+      }, 30); // 30ms per character for smooth animation
+
+      return () => clearInterval(interval);
+    }
+  }, [showClaudeDecide, claudeDecideState, loadingAnimationPhase, loadingAnimationText]);
 
   // Create display items ("Create vibepoint" + commits)
   const displayItems = [
@@ -1419,6 +1813,139 @@ const GitCommitHistoryApp = () => {
     );
   };
 
+  // Render loading animation for Claude Decide
+  const renderLoadingAnimation = () => {
+    const animatedText = loadingAnimationText
+      .split('')
+      .map((char, charIndex) => {
+        if (loadingAnimationPhase === 1) {
+          // Phase 1: Orange → White (left to right)
+          if (charIndex < loadingAnimationProgress) {
+            return char; // white (default)
+          } else {
+            return chalk.hex('#FFA500')(char); // orange
+          }
+        } else {
+          // Phase 2: White → Orange (left to right)
+          if (charIndex < loadingAnimationProgress) {
+            return chalk.hex('#FFA500')(char); // orange
+          } else {
+            return char; // white
+          }
+        }
+      })
+      .join('');
+    
+    return animatedText;
+  };
+
+  // Render Claude Decide loading view
+  const renderClaudeDecideLoadingView = () => {
+    return React.createElement(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      React.createElement(
+        Box,
+        { borderStyle: "single", padding: 1 },
+        React.createElement(
+          Box,
+          { flexDirection: "column" },
+          React.createElement(Text, null, " "),
+          React.createElement(
+            Text,
+            { wrap: "wrap" },
+            renderLoadingAnimation()
+          ),
+          React.createElement(Text, null, " ")
+        )
+      )
+    );
+  };
+
+  // Render Claude Decide suggestions view
+  const renderClaudeDecideSuggestionsView = () => {
+    return React.createElement(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      React.createElement(
+        Box,
+        { borderStyle: "single", padding: 1 },
+        React.createElement(
+          Box,
+          { flexDirection: "column" },
+          React.createElement(
+            Text,
+            { bold: true, color: "blueBright" },
+            "Claude's Suggestions"
+          ),
+          React.createElement(Text, null, " "),
+          
+          ...claudeSuggestions.map((suggestion, index) => {
+            const isSelected = index === selectedSuggestionIndex;
+            const indicator = isSelected ? ">" : " ";
+            const label = suggestion.type === 'vibecoder' ? 'Vibecoder' : 'Prototyper';
+            
+            return React.createElement(
+              Text,
+              { 
+                key: index,
+                color: isSelected ? "yellow" : "white",
+                wrap: "wrap"
+              },
+              `${indicator} ${index + 1} ${label}: ${suggestion.message}`
+            );
+          }),
+          
+          React.createElement(Text, null, " "),
+          React.createElement(
+            Text,
+            { color: "gray" },
+            "Press 1-2 to select • Enter to confirm • Esc to go back"
+          )
+        )
+      )
+    );
+  };
+
+  // Render Claude Decide error view
+  const renderClaudeDecideErrorView = () => {
+    const isCommitError = claudeDecideError?.includes('Failed to create vibepoint');
+    
+    return React.createElement(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      React.createElement(
+        Box,
+        { borderStyle: "single", padding: 1 },
+        React.createElement(
+          Box,
+          { flexDirection: "column" },
+          React.createElement(
+            Text, 
+            { bold: true, color: "red" }, 
+            isCommitError ? "Vibepoint Creation Failed" : "Claude Decide Failed"
+          ),
+          React.createElement(Text, null, " "),
+          React.createElement(Text, null, claudeDecideError),
+          React.createElement(Text, null, " "),
+          React.createElement(Text, { color: "yellow" }, "Options:"),
+          
+          // Different options based on error type
+          ...(isCommitError ? [
+            React.createElement(Text, null, "• Press 'r' to retry creating vibepoint"),
+            React.createElement(Text, null, "• Press 'b' to go back to suggestions"),
+            React.createElement(Text, null, "• Press 'c' to write custom message instead"),
+          ] : [
+            React.createElement(Text, null, "• Press 'r' to retry Claude analysis"),
+            React.createElement(Text, null, "• Press 'c' to write custom message instead"),
+          ]),
+          
+          React.createElement(Text, { color: "gray" }, "• Press 'Esc' to go back")
+        )
+      )
+    );
+  };
+
   // Render a single display item (create vibepoint or commit)
   const renderDisplayItem = (item, index, isSelected) => {
     const globalIndex = windowStart + index;
@@ -1657,6 +2184,16 @@ const GitCommitHistoryApp = () => {
         )
       )
     );
+  }
+
+  if (showClaudeDecide) {
+    if (claudeDecideState === 'loading') {
+      return renderClaudeDecideLoadingView();
+    } else if (claudeDecideState === 'suggestions') {
+      return renderClaudeDecideSuggestionsView();  
+    } else if (claudeDecideState === 'error') {
+      return renderClaudeDecideErrorView();
+    }
   }
 
   if (showCustomLabel) {
