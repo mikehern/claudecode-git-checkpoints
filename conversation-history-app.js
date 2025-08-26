@@ -2162,13 +2162,31 @@ Return valid JSON only:
                       : "Prototyper";
 
                   return React.createElement(
-                    Text,
-                    {
-                      key: index,
-                      color: isSelected ? "yellow" : "white",
-                      wrap: "wrap",
-                    },
-                    `${indicator} ${index + 1} ${label}: ${suggestion.message}`
+                    Box,
+                    { key: index, flexDirection: "row", width: "100%" },
+                    // Left column - indicator and label
+                    React.createElement(
+                      Box,
+                      { width: 18, flexShrink: 0 },
+                      React.createElement(
+                        Text,
+                        { color: isSelected ? "yellow" : "white" },
+                        `${indicator} ${index + 1} ${label}:`
+                      )
+                    ),
+                    // Right column - message text
+                    React.createElement(
+                      Box,
+                      { flexGrow: 1 },
+                      React.createElement(
+                        Text,
+                        {
+                          color: isSelected ? "yellow" : "white",
+                          wrap: "wrap",
+                        },
+                        suggestion.message
+                      )
+                    )
                   );
                 }),
 
