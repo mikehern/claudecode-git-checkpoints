@@ -8,7 +8,10 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { fileURLToPath } from "url";
-import { execSync } from "child_process";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,20 +52,28 @@ const GitCommitHistoryApp = () => {
     modified: [],
     removed: [],
   });
-  
+
   // Claude Decide feature state
   const [showClaudeDecide, setShowClaudeDecide] = useState(false);
-  const [claudeDecideState, setClaudeDecideState] = useState('loading'); // 'loading' | 'suggestions' | 'error'
+  const [claudeDecideState, setClaudeDecideState] = useState("loading"); // 'loading' | 'suggestions' | 'error'
   const [claudeSuggestions, setClaudeSuggestions] = useState([]);
   const [claudeDecideError, setClaudeDecideError] = useState(null);
-  const [loadingAnimationText, setLoadingAnimationText] = useState('* Analyzing your last sent message and file changes');
+  const [loadingAnimationText, setLoadingAnimationText] = useState(
+    "* Analyzing your last sent message and file changes"
+  );
   const [loadingAnimationProgress, setLoadingAnimationProgress] = useState(0);
   const [loadingAnimationPhase, setLoadingAnimationPhase] = useState(1); // 1 = orange->white, 2 = white->orange
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0); // For suggestions navigation
-  
+  const [spinnerFrameIndex, setSpinnerFrameIndex] = useState(0);
+
   const { exit } = useApp();
 
-  const optionsPath = path.join(os.homedir(), ".config", "vibepoints", "options.json");
+  const optionsPath = path.join(
+    os.homedir(),
+    ".config",
+    "vibepoints",
+    "options.json"
+  );
 
   // Initialize sound player
   const player = sound();
@@ -275,11 +286,11 @@ const GitCommitHistoryApp = () => {
       };
 
       status.files.forEach((file) => {
-        if (file.index === 'A' || file.working_dir === 'A') {
+        if (file.index === "A" || file.working_dir === "A") {
           changes.added.push(file.path);
-        } else if (file.index === 'D' || file.working_dir === 'D') {
+        } else if (file.index === "D" || file.working_dir === "D") {
           changes.removed.push(file.path);
-        } else if (file.index === 'M' || file.working_dir === 'M') {
+        } else if (file.index === "M" || file.working_dir === "M") {
           changes.modified.push(file.path);
         }
       });
@@ -296,17 +307,17 @@ const GitCommitHistoryApp = () => {
     try {
       const git = simpleGit(process.cwd());
       const status = await git.status();
-      
+
       if (status.staged.length > 0) {
         // Get staged changes (what will be committed)
-        return await git.diff(['--staged']);
+        return await git.diff(["--staged"]);
       } else {
         // Get all unstaged changes
         return await git.diff();
       }
     } catch (error) {
-      console.error('Failed to get git diff:', error);
-      return '';
+      console.error("Failed to get git diff:", error);
+      return "";
     }
   };
 
@@ -315,25 +326,25 @@ const GitCommitHistoryApp = () => {
     try {
       // 1. Get git diff of current changes
       const diff = await getGitDiff();
-      
+
       // 2. Current file changes (already have this)
       const fileChanges = await getCurrentFileChanges();
-      
+
       // 3. Last Claude input (already have this)
-      const lastInput = lastClaudeInput?.text || '';
-      
+      const lastInput = lastClaudeInput?.text || "";
+
       // 4. Recent commit context for patterns
-      const recentCommits = commits.slice(0, 3).map(c => c.text);
-      
+      const recentCommits = commits.slice(0, 3).map((c) => c.text);
+
       return {
         diff,
         fileChanges,
         lastInput,
-        recentCommits
+        recentCommits,
       };
     } catch (error) {
-      console.error('Context gathering failed:', error);
-      throw new Error('Failed to analyze project changes');
+      console.error("Context gathering failed:", error);
+      throw new Error("Failed to analyze project changes");
     }
   };
 
@@ -385,23 +396,27 @@ Generate two distinct commit message suggestions for the changes about to be com
 
 <context>
 <user_intent>
-${context.lastInput || 'No recent user message found'}
+${context.lastInput || "No recent user message found"}
 </user_intent>
 
 <file_changes>
-Added files: ${context.fileChanges.added.join(', ') || 'none'}
-Modified files: ${context.fileChanges.modified.join(', ') || 'none'}  
-Removed files: ${context.fileChanges.removed.join(', ') || 'none'}
+Added files: ${context.fileChanges.added.join(", ") || "none"}
+Modified files: ${context.fileChanges.modified.join(", ") || "none"}  
+Removed files: ${context.fileChanges.removed.join(", ") || "none"}
 </file_changes>
 
 <code_diff>
-${context.diff ? context.diff.slice(0, 1000) : 'No diff available'}
-${context.diff && context.diff.length > 1000 ? '\\n[...truncated...]' : ''}
+${context.diff ? context.diff.slice(0, 1000) : "No diff available"}
+${context.diff && context.diff.length > 1000 ? "\\n[...truncated...]" : ""}
 </code_diff>
 
 <recent_commits>
 Recent commit history for context:
-${context.recentCommits.length > 0 ? context.recentCommits.map(c => `• ${c}`).join('\\n') : '• No recent commits'}
+${
+  context.recentCommits.length > 0
+    ? context.recentCommits.map((c) => `• ${c}`).join("\\n")
+    : "• No recent commits"
+}
 </recent_commits>
 </context>
 
@@ -430,23 +445,35 @@ Return valid JSON only:
 `;
 
     try {
-      // Use claude CLI with -p flag and JSON output
-      const result = execSync(
-        `echo ${JSON.stringify(prompt)} | claude -p --output-format json --max-turns 1`,
-        { 
-          encoding: 'utf8',
+      // Write prompt to temporary file to avoid shell escaping issues
+      const tempFile = `/tmp/claude-prompt-${Date.now()}.txt`;
+      fs.writeFileSync(tempFile, prompt);
+
+      // Use claude CLI with -p flag and JSON output (async)
+      const { stdout: result } = await execAsync(
+        `cat "${tempFile}" | claude -p --output-format json --max-turns 1`,
+        {
+          encoding: "utf8",
           timeout: 30000, // 30 second timeout
-          cwd: process.cwd() // Run in current directory
+          cwd: process.cwd(), // Run in current directory
         }
       );
 
+      // Clean up temp file
+      fs.unlinkSync(tempFile);
+
       // Parse the JSON response
-      const debugFile = '/tmp/claude-decide-debug.log';
-      fs.writeFileSync(debugFile, `Raw Claude CLI response:\n${result}\n\n`, { flag: 'w' });
-      
+      const debugFile = "/tmp/claude-decide-debug.log";
+      fs.writeFileSync(debugFile, `Raw Claude CLI response:\n${result}\n\n`, {
+        flag: "w",
+      });
+
       const response = JSON.parse(result.trim());
-      fs.appendFileSync(debugFile, `Parsed response:\n${JSON.stringify(response, null, 2)}\n\n`);
-      
+      fs.appendFileSync(
+        debugFile,
+        `Parsed response:\n${JSON.stringify(response, null, 2)}\n\n`
+      );
+
       // Extract the actual result content from Claude CLI response
       let suggestions;
       if (response.result) {
@@ -456,29 +483,32 @@ Return valid JSON only:
           suggestions = JSON.parse(jsonMatch[1]);
         }
       }
-      
+
       // Extract suggestions with fallback handling
-      const vibecoder = suggestions?.vibecoder || 'Generated vibecoder suggestion';
-      const prototyper = suggestions?.prototyper || 'Generated prototyper suggestion';
-      
+      const vibecoder =
+        suggestions?.vibecoder || "Generated vibecoder suggestion";
+      const prototyper =
+        suggestions?.prototyper || "Generated prototyper suggestion";
+
       fs.appendFileSync(debugFile, `Extracted vibecoder: ${vibecoder}\n`);
       fs.appendFileSync(debugFile, `Extracted prototyper: ${prototyper}\n`);
-      
+
       return [
-        { type: 'vibecoder', message: vibecoder },
-        { type: 'prototyper', message: prototyper }
+        { type: "vibecoder", message: vibecoder },
+        { type: "prototyper", message: prototyper },
       ];
-      
     } catch (error) {
-      console.error('Claude CLI call failed:', error);
-      
+      console.error("Claude CLI call failed:", error);
+
       // Better error messages based on CLI errors
-      if (error.message.includes('command not found')) {
-        throw new Error('Claude Code CLI not installed. Install with: npm install -g @anthropic-ai/claude-code');
-      } else if (error.message.includes('ANTHROPIC_API_KEY')) {
-        throw new Error('Claude Code not authenticated. Run: claude auth');
-      } else if (error.message.includes('timeout')) {
-        throw new Error('Claude API request timed out');
+      if (error.message.includes("command not found")) {
+        throw new Error(
+          "Claude Code CLI not installed. Install with: npm install -g @anthropic-ai/claude-code"
+        );
+      } else if (error.message.includes("ANTHROPIC_API_KEY")) {
+        throw new Error("Claude Code not authenticated. Run: claude auth");
+      } else if (error.message.includes("timeout")) {
+        throw new Error("Claude API request timed out");
       } else {
         throw new Error(`Claude CLI error: ${error.message}`);
       }
@@ -490,25 +520,29 @@ Return valid JSON only:
     try {
       // Gather context
       const context = await gatherClaudeContext();
-      
+
       // Call Claude CLI
       const suggestions = await generateCommitSuggestions(context);
-      
+
       // Transition to suggestions view
       setClaudeSuggestions(suggestions);
-      setClaudeDecideState('suggestions');
+      setClaudeDecideState("suggestions");
     } catch (error) {
       // CLI-specific error handling
-      if (error.message.includes('not installed')) {
-        setClaudeDecideError('Claude Code CLI not found. Please install Claude Code first.');
-      } else if (error.message.includes('not authenticated')) {
-        setClaudeDecideError('Claude Code not authenticated. Run "claude auth" first.');
-      } else if (error.message.includes('timeout')) {
-        setClaudeDecideError('Request timed out. Please try again.');
+      if (error.message.includes("not installed")) {
+        setClaudeDecideError(
+          "Claude Code CLI not found. Please install Claude Code first."
+        );
+      } else if (error.message.includes("not authenticated")) {
+        setClaudeDecideError(
+          'Claude Code not authenticated. Run "claude auth" first.'
+        );
+      } else if (error.message.includes("timeout")) {
+        setClaudeDecideError("Request timed out. Please try again.");
       } else {
         setClaudeDecideError(`Error: ${error.message}`);
       }
-      setClaudeDecideState('error');
+      setClaudeDecideState("error");
     }
   };
 
@@ -526,7 +560,7 @@ Return valid JSON only:
 
       // Clean up Claude Decide state
       setShowClaudeDecide(false);
-      setClaudeDecideState('loading'); // Reset for next time
+      setClaudeDecideState("loading"); // Reset for next time
       setClaudeSuggestions([]);
       setClaudeDecideError(null);
       setSelectedSuggestionIndex(0);
@@ -542,10 +576,10 @@ Return valid JSON only:
       playVibepointSound();
     } catch (error) {
       console.error("Failed to create Claude decide vibepoint:", error.message);
-      
+
       // Stay in Claude Decide flow for error handling
       setClaudeDecideError(`Failed to create vibepoint: ${error.message}`);
-      setClaudeDecideState('error');
+      setClaudeDecideState("error");
     }
   };
 
@@ -795,7 +829,7 @@ Return valid JSON only:
 
   // Handle keyboard input
   useInput((input, key) => {
-    if (showClaudeDecide && claudeDecideState === 'loading') {
+    if (showClaudeDecide && claudeDecideState === "loading") {
       // Loading state - only allow escape
       if (key.escape) {
         playNextSound();
@@ -806,7 +840,7 @@ Return valid JSON only:
       return; // Block all other input during loading
     }
 
-    if (showClaudeDecide && claudeDecideState === 'suggestions') {
+    if (showClaudeDecide && claudeDecideState === "suggestions") {
       // Suggestions screen navigation
       if (key.escape) {
         playNextSound();
@@ -814,7 +848,7 @@ Return valid JSON only:
         setShowCreateVibepoint(true);
         return;
       }
-      
+
       if (key.upArrow) {
         setSelectedSuggestionIndex((prev) => {
           const newIndex = Math.max(0, prev - 1);
@@ -823,7 +857,7 @@ Return valid JSON only:
         });
         return;
       }
-      
+
       if (key.downArrow) {
         setSelectedSuggestionIndex((prev) => {
           const newIndex = Math.min(claudeSuggestions.length - 1, prev + 1);
@@ -832,16 +866,17 @@ Return valid JSON only:
         });
         return;
       }
-      
+
       if (key.return) {
-        const selectedMessage = claudeSuggestions[selectedSuggestionIndex].message;
+        const selectedMessage =
+          claudeSuggestions[selectedSuggestionIndex].message;
         playAnimationSound();
-        
+
         // Create commit with selected message using Claude Decide flow
         createClaudeDecideVibepoint(selectedMessage);
         return;
       }
-      
+
       // Number key selection (1-2)
       if (input === "1" && claudeSuggestions.length >= 1) {
         setSelectedSuggestionIndex(0);
@@ -850,7 +885,7 @@ Return valid JSON only:
         createClaudeDecideVibepoint(selectedMessage);
         return;
       }
-      
+
       if (input === "2" && claudeSuggestions.length >= 2) {
         setSelectedSuggestionIndex(1);
         const selectedMessage = claudeSuggestions[1].message;
@@ -858,59 +893,62 @@ Return valid JSON only:
         createClaudeDecideVibepoint(selectedMessage);
         return;
       }
-      
+
       return;
     }
 
-    if (showClaudeDecide && claudeDecideState === 'error') {
-      const isCommitError = claudeDecideError?.includes('Failed to create vibepoint');
-      
-      if (input === 'r') {
+    if (showClaudeDecide && claudeDecideState === "error") {
+      const isCommitError = claudeDecideError?.includes(
+        "Failed to create vibepoint"
+      );
+
+      if (input === "r") {
         if (isCommitError) {
           // Retry the commit with the same message
-          const lastSelectedMessage = claudeSuggestions[selectedSuggestionIndex]?.message;
+          const lastSelectedMessage =
+            claudeSuggestions[selectedSuggestionIndex]?.message;
           if (lastSelectedMessage) {
             setClaudeDecideError(null);
             createClaudeDecideVibepoint(lastSelectedMessage);
           }
         } else {
           // Retry the Claude analysis flow
-          setClaudeDecideState('loading');
+          setClaudeDecideState("loading");
           setClaudeDecideError(null);
           handleClaudeDecideFlow();
         }
         return;
       }
-      
-      if (input === 'b' && isCommitError) {
+
+      if (input === "b" && isCommitError) {
         // Go back to suggestions screen
         setClaudeDecideError(null);
-        setClaudeDecideState('suggestions');
+        setClaudeDecideState("suggestions");
         return;
       }
-      
-      if (input === 'c') {
+
+      if (input === "c") {
         // Fallback to custom input
         setShowClaudeDecide(false);
-        setClaudeDecideState('loading'); // Reset state
+        setClaudeDecideState("loading"); // Reset state
         setClaudeSuggestions([]);
         setClaudeDecideError(null);
         setSelectedSuggestionIndex(0);
         setShowCustomLabel(true);
         return;
       }
-      
+
       if (key.escape) {
         // Back to create vibepoint menu
         setShowClaudeDecide(false);
-        setClaudeDecideState('loading'); // Reset state
+        setClaudeDecideState("loading"); // Reset state
         setClaudeSuggestions([]);
         setClaudeDecideError(null);
         setSelectedSuggestionIndex(0);
         setShowCreateVibepoint(true);
         return;
       }
-      
+
       return;
     }
 
@@ -921,7 +959,7 @@ Return valid JSON only:
         setShowCustomLabel(false);
         setShowCreateVibepoint(true);
         setCustomLabel("");
-        
+
         // Load current file changes
         getCurrentFileChanges().then((changes) => {
           setCurrentFileChanges(changes);
@@ -1034,9 +1072,9 @@ Return valid JSON only:
           // Navigate to Claude decide loading
           setShowCreateVibepoint(false);
           setShowClaudeDecide(true);
-          setClaudeDecideState('loading');
+          setClaudeDecideState("loading");
           setClaudeDecideError(null);
-          
+
           // Start the context gathering and CLI call
           handleClaudeDecideFlow();
         }
@@ -1063,9 +1101,9 @@ Return valid JSON only:
         // Navigate to Claude decide loading
         setShowCreateVibepoint(false);
         setShowClaudeDecide(true);
-        setClaudeDecideState('loading');
+        setClaudeDecideState("loading");
         setClaudeDecideError(null);
-        
+
         // Start the context gathering and CLI call
         handleClaudeDecideFlow();
       }
@@ -1182,7 +1220,7 @@ Return valid JSON only:
       playAnimationSound();
       setShowCreateVibepoint(true);
       setCreateVibepointSelectedIndex(0);
-      
+
       // Load current file changes
       getCurrentFileChanges().then((changes) => {
         setCurrentFileChanges(changes);
@@ -1229,7 +1267,7 @@ Return valid JSON only:
         playAnimationSound();
         setShowCreateVibepoint(true);
         setCreateVibepointSelectedIndex(0);
-        
+
         // Load current file changes
         getCurrentFileChanges().then((changes) => {
           setCurrentFileChanges(changes);
@@ -1308,35 +1346,16 @@ Return valid JSON only:
     }
   }, [successAnimatingIndex, successAnimationPhase, commits]);
 
-  // Loading animation effect for Claude Decide - DISABLED (keeping static orange text)
-  // useEffect(() => {
-  //   if (showClaudeDecide && claudeDecideState === 'loading') {
-  //     const totalChars = loadingAnimationText.length;
-  //     const interval = setInterval(() => {
-  //       setLoadingAnimationProgress((prev) => {
-  //         const next = prev + 1;
-  //         if (next >= totalChars) {
-  //           // Cycle complete, reverse direction
-  //           if (loadingAnimationPhase === 1) {
-  //             setTimeout(() => {
-  //               setLoadingAnimationPhase(2);
-  //               setLoadingAnimationProgress(0);
-  //             }, 100); // Brief pause
-  //           } else {
-  //             setTimeout(() => {
-  //               setLoadingAnimationPhase(1);
-  //               setLoadingAnimationProgress(0);
-  //             }, 100);
-  //           }
-  //           return totalChars;
-  //         }
-  //         return next;
-  //       });
-  //     }, 30); // 30ms per character for smooth animation
+  // Spinner animation effect for Claude Decide
+  useEffect(() => {
+    if (showClaudeDecide && claudeDecideState === "loading") {
+      const interval = setInterval(() => {
+        setSpinnerFrameIndex((prev) => (prev + 1) % 10); // 10 frames in bouncingBall
+      }, 80); // 80ms interval as per cli-spinners
 
-  //     return () => clearInterval(interval);
-  //   }
-  // }, [showClaudeDecide, claudeDecideState, loadingAnimationPhase, loadingAnimationText]);
+      return () => clearInterval(interval);
+    }
+  }, [showClaudeDecide, claudeDecideState]);
 
   // Create display items ("Create vibepoint" + commits)
   const displayItems = [
@@ -1366,7 +1385,11 @@ Return valid JSON only:
           : lastClaudeInput.text
         : "No recent input found";
 
-    return [`1 "${lastInputText}"`, "2 I'll customize it", "3 Let Claude decide"];
+    return [
+      `1 "${lastInputText}"`,
+      "2 I'll customize it",
+      "3 Let Claude decide",
+    ];
   };
 
   // Render revert confirmation view
@@ -1535,13 +1558,13 @@ Return valid JSON only:
           `- ${file}`
         )
       ),
-      
+
       // Add spacing if there are file changes
       (currentFileChanges.added.length > 0 ||
         currentFileChanges.modified.length > 0 ||
         currentFileChanges.removed.length > 0) &&
         React.createElement(Text, null, " "),
-      
+
       React.createElement(
         Box,
         { borderStyle: "single", padding: 1 },
@@ -1816,13 +1839,31 @@ Return valid JSON only:
   // Render loading animation for Claude Decide
   const renderLoadingText = () => {
     // Simply return the entire loading text in orange color (no animation)
-    return chalk.hex('#FFA500')(loadingAnimationText);
+    return chalk.hex("#FFA500")(loadingAnimationText);
+  };
+
+  const renderSpinner = () => {
+    // bouncingBall spinner from cli-spinners
+    const spinnerFrames = [
+      "( ✓    )",
+      "(  ✓   )",
+      "(   ✓  )",
+      "(    ✓ )",
+      "(     ✓)",
+      "(    ✓ )",
+      "(   ✓  )",
+      "(  ✓   )",
+      "( ✓    )",
+      "(✓     )",
+    ];
+
+    return chalk.hex("#FFA500")(spinnerFrames[spinnerFrameIndex]);
   };
 
   // Unified render function for Claude Decide (handles both loading and suggestions)
   const renderClaudeDecideView = () => {
-    const isLoading = claudeDecideState === 'loading';
-    
+    const isLoading = claudeDecideState === "loading";
+
     return React.createElement(
       Box,
       { flexDirection: "column", padding: 1 },
@@ -1838,40 +1879,45 @@ Return valid JSON only:
             "Claude's Suggestions"
           ),
           React.createElement(Text, null, " "),
-          
-          // Conditionally render loading text or suggestions
-          ...(isLoading ? 
-            [
-              React.createElement(
-                Text,
-                { key: "loading" },
-                renderLoadingText()
-              )
-            ] :
-            [
-              ...claudeSuggestions.map((suggestion, index) => {
-                const isSelected = index === selectedSuggestionIndex;
-                const indicator = isSelected ? ">" : " ";
-                const label = suggestion.type === 'vibecoder' ? 'Vibecoder' : 'Prototyper';
-                
-                return React.createElement(
+
+          // Conditionally render loading spinner/text or suggestions
+          ...(isLoading
+            ? [
+                React.createElement(Text, { key: "spinner" }, renderSpinner()),
+                React.createElement(Text, { key: "spinner-spacer" }, " "),
+                React.createElement(
                   Text,
-                  {
-                    key: index,
-                    color: isSelected ? "yellow" : "white",
-                    wrap: "wrap"
-                  },
-                  `${indicator} ${index + 1} ${label}: ${suggestion.message}`
-                );
-              }),
-              
-              React.createElement(Text, { key: "spacer" }, " "),
-              React.createElement(
-                Text,
-                { key: "help", color: "gray" },
-                "Press 1-2 to select • Enter to confirm • Esc to go back"
-              )
-            ])
+                  { key: "loading" },
+                  renderLoadingText()
+                ),
+              ]
+            : [
+                ...claudeSuggestions.map((suggestion, index) => {
+                  const isSelected = index === selectedSuggestionIndex;
+                  const indicator = isSelected ? ">" : " ";
+                  const label =
+                    suggestion.type === "vibecoder"
+                      ? "Vibecoder"
+                      : "Prototyper";
+
+                  return React.createElement(
+                    Text,
+                    {
+                      key: index,
+                      color: isSelected ? "yellow" : "white",
+                      wrap: "wrap",
+                    },
+                    `${indicator} ${index + 1} ${label}: ${suggestion.message}`
+                  );
+                }),
+
+                React.createElement(Text, { key: "spacer" }, " "),
+                React.createElement(
+                  Text,
+                  { key: "help", color: "gray" },
+                  "Press 1-2 to select • Enter to confirm • Esc to go back"
+                ),
+              ])
         )
       )
     );
@@ -1894,23 +1940,24 @@ Return valid JSON only:
             "Claude's Suggestions"
           ),
           React.createElement(Text, null, " "),
-          
+
           ...claudeSuggestions.map((suggestion, index) => {
             const isSelected = index === selectedSuggestionIndex;
             const indicator = isSelected ? ">" : " ";
-            const label = suggestion.type === 'vibecoder' ? 'Vibecoder' : 'Prototyper';
-            
+            const label =
+              suggestion.type === "vibecoder" ? "Vibecoder" : "Prototyper";
+
             return React.createElement(
               Text,
-              { 
+              {
                 key: index,
                 color: isSelected ? "yellow" : "white",
-                wrap: "wrap"
+                wrap: "wrap",
               },
               `${indicator} ${index + 1} ${label}: ${suggestion.message}`
             );
           }),
-          
+
           React.createElement(Text, null, " "),
           React.createElement(
             Text,
@@ -1924,8 +1971,10 @@ Return valid JSON only:
 
   // Render Claude Decide error view
   const renderClaudeDecideErrorView = () => {
-    const isCommitError = claudeDecideError?.includes('Failed to create vibepoint');
-    
+    const isCommitError = claudeDecideError?.includes(
+      "Failed to create vibepoint"
+    );
+
     return React.createElement(
       Box,
       { flexDirection: "column", padding: 1 },
@@ -1936,26 +1985,52 @@ Return valid JSON only:
           Box,
           { flexDirection: "column" },
           React.createElement(
-            Text, 
-            { bold: true, color: "red" }, 
+            Text,
+            { bold: true, color: "red" },
             isCommitError ? "Vibepoint Creation Failed" : "Claude Decide Failed"
           ),
           React.createElement(Text, null, " "),
           React.createElement(Text, null, claudeDecideError),
           React.createElement(Text, null, " "),
           React.createElement(Text, { color: "yellow" }, "Options:"),
-          
+
           // Different options based on error type
-          ...(isCommitError ? [
-            React.createElement(Text, null, "• Press 'r' to retry creating vibepoint"),
-            React.createElement(Text, null, "• Press 'b' to go back to suggestions"),
-            React.createElement(Text, null, "• Press 'c' to write custom message instead"),
-          ] : [
-            React.createElement(Text, null, "• Press 'r' to retry Claude analysis"),
-            React.createElement(Text, null, "• Press 'c' to write custom message instead"),
-          ]),
-          
-          React.createElement(Text, { color: "gray" }, "• Press 'Esc' to go back")
+          ...(isCommitError
+            ? [
+                React.createElement(
+                  Text,
+                  null,
+                  "• Press 'r' to retry creating vibepoint"
+                ),
+                React.createElement(
+                  Text,
+                  null,
+                  "• Press 'b' to go back to suggestions"
+                ),
+                React.createElement(
+                  Text,
+                  null,
+                  "• Press 'c' to write custom message instead"
+                ),
+              ]
+            : [
+                React.createElement(
+                  Text,
+                  null,
+                  "• Press 'r' to retry Claude analysis"
+                ),
+                React.createElement(
+                  Text,
+                  null,
+                  "• Press 'c' to write custom message instead"
+                ),
+              ]),
+
+          React.createElement(
+            Text,
+            { color: "gray" },
+            "• Press 'Esc' to go back"
+          )
         )
       )
     );
@@ -2202,9 +2277,12 @@ Return valid JSON only:
   }
 
   if (showClaudeDecide) {
-    if (claudeDecideState === 'loading' || claudeDecideState === 'suggestions') {
+    if (
+      claudeDecideState === "loading" ||
+      claudeDecideState === "suggestions"
+    ) {
       return renderClaudeDecideView(); // Unified function handles both states
-    } else if (claudeDecideState === 'error') {
+    } else if (claudeDecideState === "error") {
       return renderClaudeDecideErrorView();
     }
   }
@@ -2241,9 +2319,10 @@ Return valid JSON only:
 };
 
 // Only render if this file is run directly (handle both direct execution and npm global symlinks)
-const isMainModule = import.meta.url === `file://${process.argv[1]}` || 
-                     process.argv[1].endsWith('vpoints') ||
-                     process.argv[1].includes('conversation-history-app.js');
+const isMainModule =
+  import.meta.url === `file://${process.argv[1]}` ||
+  process.argv[1].endsWith("vpoints") ||
+  process.argv[1].includes("conversation-history-app.js");
 
 if (isMainModule) {
   render(React.createElement(GitCommitHistoryApp));
