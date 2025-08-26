@@ -12,6 +12,7 @@ const GitCommitHistoryApp = () => {
   const [commits, setCommits] = useState([]);
   const [lastClaudeInput, setLastClaudeInput] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isGitRepository, setIsGitRepository] = useState(null); // null = checking, true = valid, false = invalid
   const [windowStart, setWindowStart] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
@@ -45,7 +46,7 @@ const GitCommitHistoryApp = () => {
   });
   const { exit } = useApp();
 
-  const optionsPath = path.join(process.cwd(), "options.json");
+  const optionsPath = path.join(os.homedir(), ".config", "vibepoints", "options.json");
 
   // Initialize sound player
   const player = sound();
@@ -66,6 +67,9 @@ const GitCommitHistoryApp = () => {
   // Save options to file
   const saveOptions = (newOptions) => {
     try {
+      // Ensure config directory exists
+      const configDir = path.dirname(optionsPath);
+      fs.mkdirSync(configDir, { recursive: true });
       fs.writeFileSync(optionsPath, JSON.stringify(newOptions, null, 2));
     } catch (error) {
       // Silently fail if can't save
@@ -459,11 +463,36 @@ const GitCommitHistoryApp = () => {
     }
   };
 
+  // Check if current directory is a git repository
+  const checkGitRepository = async () => {
+    try {
+      const git = simpleGit(process.cwd());
+      await git.status();
+      setIsGitRepository(true);
+    } catch (error) {
+      setIsGitRepository(false);
+    }
+  };
+
   useEffect(() => {
-    // Initial load
-    loadCommits();
-    loadLastClaudeInput();
-    checkUncommittedChanges();
+    // First check if we're in a git repository
+    checkGitRepository();
+  }, []);
+
+  useEffect(() => {
+    // Only proceed if we're in a git repository
+    if (isGitRepository === true) {
+      // Initial load
+      loadCommits();
+      loadLastClaudeInput();
+      checkUncommittedChanges();
+    } else if (isGitRepository === false) {
+      // Exit early if not in a git repository
+      return;
+    }
+
+    // Only set up watchers if we're in a git repository
+    if (isGitRepository !== true) return;
 
     // Watch for Git changes
     const gitLogPath = path.join(process.cwd(), ".git", "logs", "HEAD");
@@ -527,7 +556,7 @@ const GitCommitHistoryApp = () => {
       }
       clearInterval(statusInterval);
     };
-  }, []);
+  }, [isGitRepository]);
 
   // Handle keyboard input
   useInput((input, key) => {
@@ -1580,6 +1609,49 @@ const GitCommitHistoryApp = () => {
     );
   };
 
+  // Show loading or error state if git repository check is in progress or failed
+  if (isGitRepository === null) {
+    return React.createElement(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      React.createElement(Text, null, "Checking git repository...")
+    );
+  }
+
+  if (isGitRepository === false) {
+    return React.createElement(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      React.createElement(
+        Box,
+        { borderStyle: "single", padding: 1 },
+        React.createElement(
+          Box,
+          { flexDirection: "column" },
+          React.createElement(
+            Text,
+            { bold: true, color: "red" },
+            "Not a Git Repository"
+          ),
+          React.createElement(Text, null, " "),
+          React.createElement(
+            Text,
+            null,
+            "Vibepoints can only run in directories that are git repositories."
+          ),
+          React.createElement(Text, null, " "),
+          React.createElement(
+            Text,
+            { color: "gray" },
+            "Initialize a git repository with: git init"
+          ),
+          React.createElement(Text, null, " "),
+          React.createElement(Text, { color: "gray" }, "Press 'x' to exit")
+        )
+      )
+    );
+  }
+
   if (showCustomLabel) {
     return renderCustomLabelView();
   }
@@ -1611,8 +1683,12 @@ const GitCommitHistoryApp = () => {
   return renderMainView();
 };
 
-// Only render if this file is run directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Only render if this file is run directly (handle both direct execution and npm global symlinks)
+const isMainModule = import.meta.url === `file://${process.argv[1]}` || 
+                     process.argv[1].endsWith('vpoints') ||
+                     process.argv[1].includes('conversation-history-app.js');
+
+if (isMainModule) {
   render(React.createElement(GitCommitHistoryApp));
 }
 
