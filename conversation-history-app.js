@@ -204,8 +204,24 @@ const GitCommitHistoryApp = () => {
       setSelectedIndex(0);
       setWindowStart(0);
     } catch (error) {
-      console.error("Failed to load commit history:", error.message);
-      setCommits([{ text: "Error loading commits", timestamp: "Unknown" }]);
+      // Check if this is an empty repository (no commits yet)
+      if (
+        error.message.includes("does not have any commits yet") ||
+        error.message.includes("bad default revision 'HEAD'") ||
+        error.message.includes("your current branch") ||
+        error.message.includes("initial commit")
+      ) {
+        // Empty repository - this is normal, not an error
+        setCommits([]);
+      } else {
+        // Actual git error
+        console.error("Failed to load commit history:", error.message);
+        setCommits([]);
+      }
+
+      // Keep "Create vibepoint" selected (index 0) and reset window
+      setSelectedIndex(0);
+      setWindowStart(0);
     }
   };
 
@@ -837,6 +853,14 @@ Return valid JSON only:
   const undoLastCommit = async () => {
     try {
       const git = simpleGit(process.cwd());
+
+      // Safety check: ensure we have commits to undo
+      const log = await git.log({ maxCount: 1 });
+      if (log.all.length === 0) {
+        console.warn("No commits to undo");
+        return;
+      }
+
       await git.reset(["--hard", "HEAD~1"]);
       loadCommits(); // Refresh the commit list
     } catch (error) {
@@ -848,6 +872,13 @@ Return valid JSON only:
   const revertToCommit = async (commitHash) => {
     try {
       const git = simpleGit(process.cwd());
+
+      // Safety check: ensure the commit hash exists
+      if (!commitHash) {
+        console.warn("No commit hash provided for revert");
+        return;
+      }
+
       await git.reset(["--hard", commitHash]);
       loadCommits(); // Refresh the commit list
     } catch (error) {
@@ -868,7 +899,7 @@ Return valid JSON only:
 
       if (!fs.existsSync(claudeProjectPath)) {
         setLastClaudeInput({
-          text: "No Claude Code history found",
+          text: "You haven't used Claude Code from this directory yet",
           timestamp: "",
         });
         return;
@@ -1491,6 +1522,10 @@ Return valid JSON only:
     }
 
     if (input === "u") {
+      if (!hasCommits) {
+        // No commits to undo, do nothing (could add sound feedback here)
+        return;
+      }
       playAnimationSound();
       setShowUndoConfirm(true);
       return;
@@ -1509,6 +1544,10 @@ Return valid JSON only:
     }
 
     if (input === "d") {
+      if (!hasCommits) {
+        // No commits to view details for, do nothing
+        return;
+      }
       // Only show details if a real commit is selected (not "Create vibepoint")
       if (selectedIndex > 0) {
         const commitIndex = selectedIndex - 1; // Adjust for "Create vibepoint" offset
@@ -1528,6 +1567,10 @@ Return valid JSON only:
     }
 
     if (input === "r") {
+      if (!hasCommits) {
+        // No commits to revert to, do nothing
+        return;
+      }
       // Only show revert confirm if a real commit is selected (not "Create vibepoint")
       if (selectedIndex > 0) {
         const commitIndex = selectedIndex - 1; // Adjust for "Create vibepoint" offset
@@ -1636,6 +1679,10 @@ Return valid JSON only:
       return () => clearInterval(interval);
     }
   }, [showClaudeDecide, claudeDecideState]);
+
+  // State detection for empty repository
+  const hasCommits = commits.length > 0;
+  const isEmptyRepository = isGitRepository === true && !hasCommits;
 
   // Create display items ("Create vibepoint" + commits)
   const displayItems = [
@@ -2509,14 +2556,19 @@ Return valid JSON only:
             (visibleItems.length === 1 && visibleItems[0].type === "create")
             ? [
                 renderDisplayItem(
-                  { type: "create", text: "Create vibepoint" },
+                  { type: "create", text: "1 Create vibepoint" },
                   0,
                   selectedIndex === 0
                 ),
                 React.createElement(
                   Text,
-                  { color: "yellow", key: "loading" },
-                  "Loading commits..."
+                  {
+                    color: isEmptyRepository ? "gray" : "yellow",
+                    key: "status",
+                  },
+                  isEmptyRepository
+                    ? "No commits yet - create your first vibepoint!"
+                    : "Loading commits..."
                 ),
               ]
             : visibleItems.map((item, index) =>
@@ -2532,7 +2584,9 @@ Return valid JSON only:
           React.createElement(
             Text,
             { color: "gray" },
-            "Use ↑↓ to navigate • 1 to create • d for details • r to revert • u to undo last vibepoint • o for options • x to exit"
+            hasCommits
+              ? "Use ↑↓ to navigate • 1 to create • d for details • r to revert • u to undo last vibepoint • o for options • x to exit"
+              : "1 to create your first vibepoint • o for options • x to exit"
           )
         )
       ),
