@@ -7,6 +7,10 @@ import sound from "play-sound";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const GitCommitHistoryApp = () => {
   const [commits, setCommits] = useState([]);
@@ -85,7 +89,7 @@ const GitCommitHistoryApp = () => {
   const playMenuSound = () => {
     if (!options.audio) return;
     try {
-      player.play("sounds/menu-move.wav");
+      player.play(path.join(__dirname, "sounds/menu-move.wav"));
     } catch (error) {
       // Silently fail if sound can't be played
     }
@@ -95,7 +99,7 @@ const GitCommitHistoryApp = () => {
   const playAnimationSound = () => {
     if (!options.audio) return;
     try {
-      player.play("sounds/next.wav");
+      player.play(path.join(__dirname, "sounds/next.wav"));
     } catch (error) {
       // Silently fail if sound can't be played
     }
@@ -105,7 +109,7 @@ const GitCommitHistoryApp = () => {
   const playRevertSound = () => {
     if (!options.audio) return;
     try {
-      player.play("sounds/revert.wav");
+      player.play(path.join(__dirname, "sounds/revert.wav"));
     } catch (error) {
       // Silently fail if sound can't be played
     }
@@ -115,7 +119,7 @@ const GitCommitHistoryApp = () => {
   const playNextSound = () => {
     if (!options.audio) return;
     try {
-      player.play("sounds/next.wav");
+      player.play(path.join(__dirname, "sounds/next.wav"));
     } catch (error) {
       // Silently fail if sound can't be played
     }
@@ -125,7 +129,7 @@ const GitCommitHistoryApp = () => {
   const playExitSound = () => {
     if (!options.audio) return;
     try {
-      player.play("sounds/exit.wav");
+      player.play(path.join(__dirname, "sounds/exit.wav"));
     } catch (error) {
       // Silently fail if sound can't be played
     }
@@ -135,7 +139,7 @@ const GitCommitHistoryApp = () => {
   const playVibepointSound = () => {
     if (!options.audio) return;
     try {
-      player.play("sounds/vibepoint.wav");
+      player.play(path.join(__dirname, "sounds/vibepoint.wav"));
     } catch (error) {
       // Silently fail if sound can't be played
     }
