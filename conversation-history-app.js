@@ -48,6 +48,7 @@ const GitCommitHistoryApp = () => {
   const [options, setOptions] = useState({ audio: true, customPrefix: true });
   const [optionsSelectedIndex, setOptionsSelectedIndex] = useState(0);
   const [hasUncommittedChanges, setHasUncommittedChanges] = useState(false);
+  const [fileChangesCount, setFileChangesCount] = useState(0);
   const [currentFileChanges, setCurrentFileChanges] = useState({
     added: [],
     modified: [],
@@ -1012,9 +1013,11 @@ Return valid JSON only:
         status.renamed.length > 0;
 
       setHasUncommittedChanges(hasChanges);
+      setFileChangesCount(status.files.length);
     } catch (error) {
       // If git status fails, assume no changes
       setHasUncommittedChanges(false);
+      setFileChangesCount(0);
     }
   };
 
@@ -2611,16 +2614,16 @@ Return valid JSON only:
       // Blank line
       React.createElement(Text, null, " "),
 
-      // Status line: uncommitted changes warning, branch name, commit count
+      // Status line: branch name, commit count, file changes
       React.createElement(
         Text,
         null,
-        hasUncommittedChanges &&
-          React.createElement(Text, { color: "red" }, "! "),
         currentBranch &&
           React.createElement(Text, { color: "blue" }, `${currentBranch} `),
         `${commits.length} `,
-        React.createElement(Text, { color: "blue" }, "✓")
+        React.createElement(Text, { color: "blue" }, "✓"),
+        fileChangesCount > 0 &&
+          React.createElement(Text, { color: "gray" }, ` ${fileChangesCount} file${fileChangesCount === 1 ? '' : 's'} changed`)
       )
     );
   };
