@@ -1,0 +1,101 @@
+# "Let Claude Decide" Feature Specification
+
+## Overview
+Implement the "Let Claude Decide" option in the vibepoint creation flow, leveraging the Claude Code SDK to generate AI-powered commit message suggestions.
+
+## User Flow
+
+### Entry Point
+- User navigates to "Create vibepoint" screen
+- Selects option "3 Let Claude decide" 
+- System transitions to loading screen
+
+### Loading State
+**Screen Layout:**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│ * Analyzing your last sent message and file changes                 │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Animation:**
+- Text displays in orange
+- Characters animate from orange to white, left to right, rapidly and repeatedly
+- Animation continues until API response received
+- Uses same looping pattern as Claude Code interface
+
+### Results State
+**Screen Layout:**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Claude's Suggestions                                                │
+│                                                                     │
+│ > 1 Vibecoder: [Natural language commit message]                   │
+│   2 Prototyper: [Conventional commit format message]               │
+│                                                                     │
+│ Press 1-2 to select • Enter to confirm • Esc to go back           │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Interaction:**
+- Arrow keys or number keys (1-2) for selection
+- Enter to confirm selection and create commit
+- Esc to return to create vibepoint menu
+
+## Technical Implementation
+
+### Context Gathering
+The system will collect and send to Claude:
+1. **Git diff**: `git diff --staged` output of current changes
+2. **Last Claude input**: Most recent user message from Claude Code conversation history
+3. **File changes summary**: Categorized list of added/modified/removed files
+4. **Code snippets**: Key sections of modified code for semantic understanding (if needed)
+
+### AI Prompt Strategy
+Generate two distinct commit message styles:
+
+**Vibecoder Style:**
+- Natural, conversational language
+- Connects user intent to implementation
+- Example: "Added dark mode toggle to settings page"
+
+**Prototyper Style:**  
+- Conventional commits format (feat:, fix:, refactor:, etc.)
+- Technical, precise descriptions
+- Example: "feat: add dark mode toggle component with context provider"
+
+### Error Handling
+- API timeout/failure: Fall back to custom input flow
+- No meaningful changes detected: Suggest generic message
+- Network errors: Show error message with retry option
+
+## Integration Points
+
+### Claude Code SDK
+- Use SDK to make API calls for commit message generation
+- Handle authentication and rate limiting
+- Process structured responses for both message styles
+
+### Existing Codebase
+- Add new state management for loading and suggestions
+- Extend `useInput` handler for new screen navigation
+- Integrate with existing `createCustomVibepoint` flow for final commit
+
+### UI Components
+- New loading screen component with animation
+- New suggestions selection component
+- Reuse existing modal/navigation patterns
+
+## Future Considerations
+- User preference memory (remember Vibecoder vs Prototyper choice)
+- Abort/interrupt functionality during loading
+- Multiple suggestion variants (3+ options)
+- Custom prompt templates for different project types
+
+---
+
+**Version:** 1.0  
+**Status:** Draft  
+**Last Updated:** [Current Date]
