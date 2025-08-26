@@ -62,7 +62,7 @@ const GitCommitHistoryApp = () => {
   const [claudeDecideError, setClaudeDecideError] = useState(null);
   const [partialError, setPartialError] = useState(null); // For when only one call fails
   const [loadingAnimationText, setLoadingAnimationText] = useState(
-    "* Reticulating Claude splines..."
+    "Reticulating Claude splines..."
   );
   const [loadingAnimationProgress, setLoadingAnimationProgress] = useState(0);
   const [loadingAnimationPhase, setLoadingAnimationPhase] = useState(1); // 1 = orange->white, 2 = white->orange
@@ -1693,8 +1693,8 @@ Return valid JSON only:
   useEffect(() => {
     if (showClaudeDecide && claudeDecideState === "loading") {
       const interval = setInterval(() => {
-        setSpinnerFrameIndex((prev) => (prev + 1) % 10); // 10 frames in bouncingBall
-      }, 80); // 80ms interval as per cli-spinners
+        setSpinnerFrameIndex((prev) => (prev + 1) % 5); // 10 frames in bouncingBall
+      }, 125); // 80ms interval as per cli-spinners
 
       return () => clearInterval(interval);
     }
@@ -2191,18 +2191,7 @@ Return valid JSON only:
 
   const renderSpinner = () => {
     // bouncingBall spinner from cli-spinners
-    const spinnerFrames = [
-      "( ✓    )",
-      "(  ✓   )",
-      "(   ✓  )",
-      "(    ✓ )",
-      "(     ✓)",
-      "(    ✓ )",
-      "(   ✓  )",
-      "(  ✓   )",
-      "( ✓    )",
-      "(✓     )",
-    ];
+    const spinnerFrames = ["∙∙∙", "●∙∙", "∙●∙", "∙∙●", "∙∙∙"];
 
     return chalk.hex("#FFA500")(spinnerFrames[spinnerFrameIndex]);
   };
@@ -2230,12 +2219,10 @@ Return valid JSON only:
           // Conditionally render loading spinner/text or suggestions
           ...(isLoading
             ? [
-                React.createElement(Text, { key: "spinner" }, renderSpinner()),
-                React.createElement(Text, { key: "spinner-spacer" }, " "),
                 React.createElement(
                   Text,
-                  { key: "loading" },
-                  renderLoadingText()
+                  { key: "loading-with-spinner" },
+                  `${renderSpinner()} ${renderLoadingText()}`
                 ),
               ]
             : [
@@ -2623,7 +2610,13 @@ Return valid JSON only:
         `${commits.length} `,
         React.createElement(Text, { color: "blue" }, "✓"),
         fileChangesCount > 0 &&
-          React.createElement(Text, { color: "gray" }, ` ${fileChangesCount} file${fileChangesCount === 1 ? '' : 's'} changed`)
+          React.createElement(
+            Text,
+            { color: "gray" },
+            ` ${fileChangesCount} file${
+              fileChangesCount === 1 ? "" : "s"
+            } changed`
+          )
       )
     );
   };
