@@ -803,16 +803,19 @@ const GitCommitHistoryApp = () => {
     }
 
     if (input === "o") {
+      playAnimationSound();
       setShowOptions(true);
       return;
     }
 
     if (input === "u") {
+      playAnimationSound();
       setShowUndoConfirm(true);
       return;
     }
 
     if (input === "1") {
+      playAnimationSound();
       setShowCreateVibepoint(true);
       setCreateVibepointSelectedIndex(0);
       
