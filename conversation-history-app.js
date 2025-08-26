@@ -58,8 +58,9 @@ const GitCommitHistoryApp = () => {
   const [claudeDecideState, setClaudeDecideState] = useState("loading"); // 'loading' | 'suggestions' | 'error'
   const [claudeSuggestions, setClaudeSuggestions] = useState([]);
   const [claudeDecideError, setClaudeDecideError] = useState(null);
+  const [partialError, setPartialError] = useState(null); // For when only one call fails
   const [loadingAnimationText, setLoadingAnimationText] = useState(
-    "* Analyzing your last sent message and file changes"
+    "* Reticulating Claude splines..."
   );
   const [loadingAnimationProgress, setLoadingAnimationProgress] = useState(0);
   const [loadingAnimationPhase, setLoadingAnimationPhase] = useState(1); // 1 = orange->white, 2 = white->orange
@@ -387,6 +388,211 @@ const GitCommitHistoryApp = () => {
     }
   };
 
+  // Generate vibecoder suggestion using Claude CLI (includes user intent)
+  const generateVibecoderSuggestion = async (context) => {
+    const prompt = `
+<task>
+Generate a natural, conversational commit message that connects the user's request to what was implemented.
+</task>
+
+<context>
+<user_intent>
+${context.lastInput || "No recent user message found"}
+</user_intent>
+
+<file_changes>
+Added files: ${context.fileChanges.added.join(", ") || "none"}
+Modified files: ${context.fileChanges.modified.join(", ") || "none"}  
+Removed files: ${context.fileChanges.removed.join(", ") || "none"}
+</file_changes>
+
+<code_diff>
+${context.diff ? context.diff.slice(0, 1000) : "No diff available"}
+${context.diff && context.diff.length > 1000 ? "\\n[...truncated...]" : ""}
+</code_diff>
+
+<recent_commits>
+Recent commit history for context:
+${
+  context.recentCommits.length > 0
+    ? context.recentCommits.map((c) => `• ${c}`).join("\\n")
+    : "• No recent commits"
+}
+</recent_commits>
+</context>
+
+<instructions>
+Based on the user's intent and the actual code changes, create a commit message using natural, conversational language that connects the user's request to what was implemented.
+
+Example: "Added user authentication to protect dashboard access"
+
+The message should:
+- Be natural and conversational
+- Connect user intent to implementation
+- Be concise but descriptive
+- Avoid technical jargon
+- Mirror the language style from the user intent
+
+</instructions>
+
+<output_format>
+Return only the single line commit message. No explanations, no analysis, no additional text.
+</output_format>
+`;
+
+    try {
+      // Write prompt to temporary file to avoid shell escaping issues
+      const tempFile = `/tmp/claude-vibecoder-${Date.now()}.txt`;
+      fs.writeFileSync(tempFile, prompt);
+
+      // Use claude CLI with -p flag and text output (async)
+      const { stdout: result } = await execAsync(
+        `cat "${tempFile}" | claude -p --max-turns 1`,
+        {
+          encoding: "utf8",
+          timeout: 30000, // 30 second timeout
+          cwd: process.cwd(), // Run in current directory
+        }
+      );
+
+      // Clean up temp file
+      fs.unlinkSync(tempFile);
+
+      // Parse the response - for vibecoder, we expect plain text
+      const debugFile = "/tmp/claude-decide-debug.log";
+      fs.appendFileSync(debugFile, `Vibecoder raw response:\n${result}\n\n`, {
+        flag: "a",
+      });
+
+      // Extract message from response (remove any markdown formatting if present)
+      let message = result.trim();
+
+      // Remove markdown code blocks if present
+      const codeBlockMatch = message.match(/```[\s\S]*?\n([\s\S]*?)\n```/);
+      if (codeBlockMatch) {
+        message = codeBlockMatch[1].trim();
+      }
+
+      // Remove any quotes if the entire message is quoted
+      if (message.startsWith('"') && message.endsWith('"')) {
+        message = message.slice(1, -1);
+      }
+
+      fs.appendFileSync(debugFile, `Extracted vibecoder: ${message}\n`);
+
+      return message || "Generated vibecoder suggestion";
+    } catch (error) {
+      console.error("Vibecoder Claude CLI call failed:", error);
+      throw new Error(`Vibecoder generation failed: ${error.message}`);
+    }
+  };
+
+  // Generate prototyper suggestion using Claude CLI (excludes user intent)
+  const generatePrototyperSuggestion = async (context) => {
+    const prompt = `
+<task>
+Generate a conventional commit message in technical format based purely on code changes.
+</task>
+
+<context>
+<file_changes>
+Added files: ${context.fileChanges.added.join(", ") || "none"}
+Modified files: ${context.fileChanges.modified.join(", ") || "none"}  
+Removed files: ${context.fileChanges.removed.join(", ") || "none"}
+</file_changes>
+
+<code_diff>
+${context.diff ? context.diff.slice(0, 1000) : "No diff available"}
+${context.diff && context.diff.length > 1000 ? "\\n[...truncated...]" : ""}
+</code_diff>
+
+<recent_commits>
+Recent commit history for context:
+${
+  context.recentCommits.length > 0
+    ? context.recentCommits.map((c) => `• ${c}`).join("\\n")
+    : "• No recent commits"
+}
+</recent_commits>
+</context>
+
+<instructions>
+Based ONLY on the code changes and file modifications, create a conventional commit message with technical precision.
+
+Use the format: {type}: {brief technical description}
+
+Types: feat|fix|docs|refactor|test|chore|style
+- feat: new feature
+- fix: bug fix
+- docs: documentation changes
+- refactor: code refactoring
+- test: adding/modifying tests
+- chore: maintenance tasks
+- style: formatting/style changes
+
+Example: "feat: implement JWT-based authentication middleware"
+
+The message should:
+- Be technically precise
+- Focus on WHAT was changed, not WHY
+- Use conventional commit format
+- Be concise and specific
+
+CRITICAL: Return ONLY the commit message. Do not include any explanation, analysis, or commentary. Just the single line commit message.
+</instructions>
+
+<output_format>
+Return only the single line commit message. No explanations, no analysis, no additional text.
+</output_format>
+`;
+
+    try {
+      // Write prompt to temporary file to avoid shell escaping issues
+      const tempFile = `/tmp/claude-prototyper-${Date.now()}.txt`;
+      fs.writeFileSync(tempFile, prompt);
+
+      // Use claude CLI with -p flag and text output (async)
+      const { stdout: result } = await execAsync(
+        `cat "${tempFile}" | claude -p --max-turns 1`,
+        {
+          encoding: "utf8",
+          timeout: 30000, // 30 second timeout
+          cwd: process.cwd(), // Run in current directory
+        }
+      );
+
+      // Clean up temp file
+      fs.unlinkSync(tempFile);
+
+      // Parse the response - for prototyper, we expect plain text
+      const debugFile = "/tmp/claude-decide-debug.log";
+      fs.appendFileSync(debugFile, `Prototyper raw response:\n${result}\n\n`, {
+        flag: "a",
+      });
+
+      // Extract message from response (remove any markdown formatting if present)
+      let message = result.trim();
+
+      // Remove markdown code blocks if present
+      const codeBlockMatch = message.match(/```[\s\S]*?\n([\s\S]*?)\n```/);
+      if (codeBlockMatch) {
+        message = codeBlockMatch[1].trim();
+      }
+
+      // Remove any quotes if the entire message is quoted
+      if (message.startsWith('"') && message.endsWith('"')) {
+        message = message.slice(1, -1);
+      }
+
+      fs.appendFileSync(debugFile, `Extracted prototyper: ${message}\n`);
+
+      return message || "Generated prototyper suggestion";
+    } catch (error) {
+      console.error("Prototyper Claude CLI call failed:", error);
+      throw new Error(`Prototyper generation failed: ${error.message}`);
+    }
+  };
+
   // Generate commit message suggestions using Claude CLI
   const generateCommitSuggestions = async (context) => {
     const prompt = `
@@ -515,25 +721,66 @@ Return valid JSON only:
     }
   };
 
-  // Handle Claude Decide flow
+  // Handle Claude Decide flow with dual parallel calls
   const handleClaudeDecideFlow = async () => {
     try {
       // Gather context
       const context = await gatherClaudeContext();
+      const contextNoUser = { ...context, lastInput: "" }; // Remove user intent for prototyper
 
-      // Call Claude CLI
-      const suggestions = await generateCommitSuggestions(context);
+      // Make both calls in parallel using Promise.allSettled for better error handling
+      const [vibecoderResult, prototyperResult] = await Promise.allSettled([
+        generateVibecoderSuggestion(context),
+        generatePrototyperSuggestion(contextNoUser),
+      ]);
 
-      // Transition to suggestions view
+      const suggestions = [];
+      let partialErrorMessage = null;
+
+      // Process vibecoder result
+      if (vibecoderResult.status === "fulfilled") {
+        suggestions.push({ type: "vibecoder", message: vibecoderResult.value });
+      } else {
+        partialErrorMessage = "Vibecoder generation failed";
+        console.error("Vibecoder failed:", vibecoderResult.reason);
+      }
+
+      // Process prototyper result
+      if (prototyperResult.status === "fulfilled") {
+        suggestions.push({
+          type: "prototyper",
+          message: prototyperResult.value,
+        });
+      } else {
+        const prototyperError = "Prototyper generation failed";
+        partialErrorMessage = partialErrorMessage
+          ? "Both suggestion types failed"
+          : prototyperError;
+        console.error("Prototyper failed:", prototyperResult.reason);
+      }
+
+      // If no suggestions succeeded, throw error for complete failure handling
+      if (suggestions.length === 0) {
+        throw new Error("Both suggestion types failed");
+      }
+
+      // Show suggestions with optional partial error indicator
       setClaudeSuggestions(suggestions);
+      setPartialError(partialErrorMessage);
       setClaudeDecideState("suggestions");
     } catch (error) {
-      // CLI-specific error handling
-      if (error.message.includes("not installed")) {
+      // Complete failure - CLI-specific error handling
+      if (
+        error.message.includes("not installed") ||
+        error.message.includes("command not found")
+      ) {
         setClaudeDecideError(
           "Claude Code CLI not found. Please install Claude Code first."
         );
-      } else if (error.message.includes("not authenticated")) {
+      } else if (
+        error.message.includes("not authenticated") ||
+        error.message.includes("ANTHROPIC_API_KEY")
+      ) {
         setClaudeDecideError(
           'Claude Code not authenticated. Run "claude auth" first.'
         );
@@ -542,6 +789,7 @@ Return valid JSON only:
       } else {
         setClaudeDecideError(`Error: ${error.message}`);
       }
+      setPartialError(null); // Clear any partial errors
       setClaudeDecideState("error");
     }
   };
@@ -550,6 +798,7 @@ Return valid JSON only:
   const createClaudeDecideVibepoint = async (message) => {
     try {
       setClaudeDecideError(null);
+      setPartialError(null);
       const git = simpleGit(process.cwd());
 
       // Stage all changes
@@ -563,6 +812,7 @@ Return valid JSON only:
       setClaudeDecideState("loading"); // Reset for next time
       setClaudeSuggestions([]);
       setClaudeDecideError(null);
+      setPartialError(null); // Clear partial errors
       setSelectedSuggestionIndex(0);
 
       // Refresh the commit list and return to main page
@@ -658,7 +908,9 @@ Return valid JSON only:
                 !message.message.content.includes("<command-name>") &&
                 !message.message.content.includes("<local-command-stdout>") &&
                 !message.message.content.startsWith("<task>") &&
-                !message.message.content.includes("Generate two distinct commit message suggestions") &&
+                !message.message.content.includes(
+                  "Generate two distinct commit message suggestions"
+                ) &&
                 message.message.content !==
                   "[Request interrupted by user for tool use]"
               ) {
@@ -879,7 +1131,7 @@ Return valid JSON only:
         return;
       }
 
-      // Number key selection (1-2)
+      // Number key selection (1-2) - handle dynamic suggestion count
       if (input === "1" && claudeSuggestions.length >= 1) {
         setSelectedSuggestionIndex(0);
         const selectedMessage = claudeSuggestions[0].message;
@@ -911,12 +1163,14 @@ Return valid JSON only:
             claudeSuggestions[selectedSuggestionIndex]?.message;
           if (lastSelectedMessage) {
             setClaudeDecideError(null);
+            setPartialError(null);
             createClaudeDecideVibepoint(lastSelectedMessage);
           }
         } else {
           // Retry the Claude analysis flow
           setClaudeDecideState("loading");
           setClaudeDecideError(null);
+          setPartialError(null);
           handleClaudeDecideFlow();
         }
         return;
@@ -925,6 +1179,7 @@ Return valid JSON only:
       if (input === "b" && isCommitError) {
         // Go back to suggestions screen
         setClaudeDecideError(null);
+        setPartialError(null);
         setClaudeDecideState("suggestions");
         return;
       }
@@ -935,6 +1190,7 @@ Return valid JSON only:
         setClaudeDecideState("loading"); // Reset state
         setClaudeSuggestions([]);
         setClaudeDecideError(null);
+        setPartialError(null);
         setSelectedSuggestionIndex(0);
         setShowCustomLabel(true);
         return;
@@ -946,6 +1202,7 @@ Return valid JSON only:
         setClaudeDecideState("loading"); // Reset state
         setClaudeSuggestions([]);
         setClaudeDecideError(null);
+        setPartialError(null);
         setSelectedSuggestionIndex(0);
         setShowCreateVibepoint(true);
         return;
@@ -1076,6 +1333,7 @@ Return valid JSON only:
           setShowClaudeDecide(true);
           setClaudeDecideState("loading");
           setClaudeDecideError(null);
+          setPartialError(null);
 
           // Start the context gathering and CLI call
           handleClaudeDecideFlow();
@@ -1105,6 +1363,7 @@ Return valid JSON only:
         setShowClaudeDecide(true);
         setClaudeDecideState("loading");
         setClaudeDecideError(null);
+        setPartialError(null);
 
         // Start the context gathering and CLI call
         handleClaudeDecideFlow();
@@ -1914,10 +2173,23 @@ Return valid JSON only:
                 }),
 
                 React.createElement(Text, { key: "spacer" }, " "),
+
+                // Show partial error if present
+                partialError &&
+                  React.createElement(
+                    Text,
+                    { key: "partial-error", color: "yellow" },
+                    `⚠ ${partialError}`
+                  ),
+                partialError &&
+                  React.createElement(Text, { key: "spacer-2" }, " "),
+
                 React.createElement(
                   Text,
                   { key: "help", color: "gray" },
-                  "Press 1-2 to select • Enter to confirm • Esc to go back"
+                  claudeSuggestions.length === 1
+                    ? "Press 1 to select • Enter to confirm • Esc to go back"
+                    : "Press 1-2 to select • Enter to confirm • Esc to go back"
                 ),
               ])
         )
