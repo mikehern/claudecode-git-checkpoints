@@ -88,14 +88,512 @@ Generate two distinct commit message styles:
 - New suggestions selection component
 - Reuse existing modal/navigation patterns
 
+## Architecture Brainstorming
+
+### Integration Options Tree
+
+**1. Standalone Claude Code SDK Integration**
+- Direct API calls with user's ANTHROPIC_API_KEY
+- Pros: Full control, works independently
+- Cons: Requires separate API key setup, even for Pro/Max users
+- **Authentication Challenge**: Claude Code SDK requires API keys even for existing Pro/Max subscribers
+- **User Impact**: Pro/Max users would need separate billing/API setup despite already paying for Claude access
+- **Setup Methods Considered**:
+  - Environment variables (`export ANTHROPIC_API_KEY=...`)
+  - Config file storage (`options.json`)
+  - First-run setup flow with key prompt
+  - Hybrid approach (env var → config → setup flow)
+
+**2. Claude Code Extension Patterns**
+*Motivation: Leverage existing Pro/Max subscriptions without additional API costs*
+
+**2a. MCP Server Approach**
+- Create custom MCP server for commit message generation
+- Inherits Claude Code authentication automatically
+- Integrated within Claude Code workflow
+- **Auth Advantage**: No separate API key needed for Pro/Max users
+- **Challenge**: Requires understanding MCP architecture (limited docs found)
+
+**2b. Hook-Based Integration** ⭐ *Selected Path*
+- Use Claude Code hooks to detect "vpoint" keyword
+- Triggers parallel vpoints app via IPC
+- Seamless two-terminal workflow
+- **Subscription Solution**: Leverages Claude Code's existing authenticated session
+- **Pro/Max Benefit**: Uses user's existing subscription, no additional API costs
+- **Fallback Strategy**: Can still support SDK mode for non-Claude-Code users
+
+**2c. Custom Slash Command**
+- `/vpoint` command in Claude Code
+- Direct integration with existing session
+- Single-terminal experience
+- **Auth Advantage**: Inherits Claude Code session authentication
+- **UX Trade-off**: Less visual separation than two-terminal approach
+
+**2d. Full Extension/Plugin**
+- Make vpoints a Claude Code plugin
+- Deepest integration level
+- Requires extension architecture
+- **Auth Advantage**: Full access to Claude Code session
+- **Development Complexity**: Unknown plugin architecture requirements
+
+### Selected Implementation Path: Hook-Based IPC
+
+**Why This Path:**
+- **Pro/Max Users**: Leverages existing Claude Code authentication, no additional API costs
+- **API Users**: Fallback to standalone SDK mode with ANTHROPIC_API_KEY
+- **User Experience**: Natural "vpoint" keyword integration feels seamless
+- **Development**: Builds on existing vpoints architecture without major rewrites
+
+**Flow:**
+1. User runs Claude Code (Terminal 1) + vpoints (Terminal 2)
+2. Hook configuration detects "vpoint" keyword in bash commands
+3. Triggers `vpoints-suggest` bridge command via IPC
+4. vpoints shows AI suggestions UI in Terminal 2
+5. User selects, response sent back to Claude Code
+6. Claude Code executes commit with selected message
+
+**Authentication Strategy:**
+- **Detection Logic**: Check if Claude Code is running with active session
+- **Pro/Max Path**: Use Claude Code's session via hook integration (no API key needed)
+- **API Path**: Fall back to SDK with user's ANTHROPIC_API_KEY
+- **Graceful Degradation**: Show setup instructions if neither available
+
+**Technical Components:**
+- **Hook Configuration**: JSON pattern matcher for "vpoint" keyword
+- **IPC Bridge**: `vpoints-suggest` command installed globally
+- **File-based Communication**: `/tmp/vpoints_trigger` and `/tmp/vpoints_response`
+- **Enhanced vpoints App**: Daemon mode listening for IPC triggers
+
+**User Experience:**
+- Natural language: "create a vpoint for these changes"
+- Automatic AI suggestion flow
+- Choice between Vibecoder/Prototyper styles
+- Seamless integration feeling
+
+## User Setup Instructions
+
+### 🎯 Setup: Smart Vpoints with Claude Code
+
+**What This Does**
+When you say "create a vpoint" to Claude, it automatically shows AI-suggested commit messages in your vpoints app!
+
+**Super Simple Setup (2 steps)**
+
+**Step 1: Start Both Apps**
+```bash
+# Terminal 1: Start Claude Code
+claude-code
+
+# Terminal 2: Start vpoints (keep this running)
+vpoints
+```
+
+**Step 2: Add One Setting to Claude Code**
+In Claude Code, just say:
+> "Add this to my hooks configuration:"
+
+Then paste this:
+```json
+{
+  "hooks": {
+    "PreToolUse": [{
+      "matcher": "Bash", 
+      "pattern": ".*vpoint.*",
+      "hooks": [{
+        "type": "command",
+        "command": "vpoints-suggest"
+      }]
+    }]
+  }
+}
+```
+
+**That's It! 🎉**
+
+**How To Use**
+Just tell Claude Code:
+- *"Create a vpoint for these changes"*
+- *"Make a vpoint with these updates"* 
+- *"Let's vpoint this work"*
+
+**What happens:**
+1. Claude detects the word "vpoint"
+2. Your vpoints app automatically shows AI suggestions
+3. Pick Vibecoder or Prototyper style
+4. Claude uses your choice for the actual commit
+
+**Troubleshooting**
+- **Not working?** Make sure both terminals are running
+- **No suggestions appearing?** Check that `vpoints-suggest` command is installed
+- **Hook not triggering?** Verify the hook was added to Claude Code settings
+
+---
+*Now Claude Code and vpoints work together like magic! ✨*
+
+## Corner Cases & Error Handling
+
+### Problem: vpoints App Not Running
+**Scenario:**
+1. User says "create a vpoint" in Claude Code
+2. Hook triggers → `vpoints-suggest` runs
+3. Bridge script writes to `/tmp/vpoints_trigger`
+4. **But vpoints isn't running to read it**
+5. Bridge script waits indefinitely for `/tmp/vpoints_response`
+6. **Claude Code hangs waiting for hook to complete**
+
+### Solution: Enhanced Bridge Script with Timeout & Detection
+```bash
+#!/bin/bash
+# /usr/local/bin/vpoints-suggest
+
+# Check if vpoints is running
+if ! pgrep -f "vpoints" > /dev/null; then
+  echo "Error: vpoints app not running. Please start vpoints in another terminal."
+  exit 1
+fi
+
+# Signal vpoints
+echo "suggest_commit" > /tmp/vpoints_trigger
+
+# Wait with timeout (30 seconds)
+timeout=300  # 30 seconds in 0.1s increments
+count=0
+
+while [ ! -f /tmp/vpoints_response ] && [ $count -lt $timeout ]; do
+  sleep 0.1
+  count=$((count + 1))
+done
+
+if [ $count -ge $timeout ]; then
+  echo "Timeout: vpoints didn't respond. Check if vpoints is running."
+  exit 1
+fi
+
+cat /tmp/vpoints_response
+rm /tmp/vpoints_response
+```
+
+**User Experience:**
+- **If vpoints not running**: "Error: vpoints app not running. Please start vpoints in another terminal."
+- **If vpoints unresponsive**: 30-second timeout with clear error message
+- **Clean feedback** instead of indefinite hanging
+
+### Other Error Cases
+- **IPC file permission issues**: Fallback to user home directory paths
+- **Multiple vpoints instances**: Process ID-based file naming
+- **Stale trigger files**: Cleanup on vpoints startup
+- **Network/API failures**: Graceful fallback to custom input flow
+
 ## Future Considerations
 - User preference memory (remember Vibecoder vs Prototyper choice)
 - Abort/interrupt functionality during loading
 - Multiple suggestion variants (3+ options)
 - Custom prompt templates for different project types
+- Fallback to standalone SDK for non-Claude-Code users
+- Enhanced error recovery with retry mechanisms
 
 ---
 
-**Version:** 1.0  
-**Status:** Draft  
+## Development Scratchpad
+
+### Implementation Clarity Discussion
+
+**Question: Do you have enough information so far to implement this?**
+
+Looking at our spec, I can implement most of it, but there are some critical gaps that need clarification:
+
+#### 🔴 Major Unclear Areas
+
+**1. Authentication Strategy Conflict**
+- We selected hook-based integration to "leverage Claude Code's session" 
+- BUT we still reference using "Claude Code SDK" in multiple places
+- **Question**: In the hook flow, WHO actually makes the AI API call?
+  - Does Claude Code itself generate suggestions using its session?
+  - Or does vpoints still need API keys/SDK?
+
+**2. Context Passing Mystery**
+- How does git diff + file changes get to whoever makes the AI call?
+- If Claude Code generates suggestions, how does it know what changes to analyze?
+- If vpoints generates them, how does it get the context from Claude Code's working directory?
+
+**3. Hook Execution Details**
+- When hook runs `vpoints-suggest`, what working directory is it in?
+- Does it have access to the same git repo as Claude Code?
+- How do we pass repository context through the IPC chain?
+
+#### 🟡 Minor Unclear Areas
+
+**4. Response Format**
+- How are Vibecoder/Prototyper suggestions formatted in `/tmp/vpoints_response`?
+- JSON? Plain text? How does Claude Code parse it?
+
+**5. Claude Code's Next Steps**
+- After hook returns commit message, what does Claude Code do?
+- Does it auto-run `git add . && git commit -m "message"`?
+- How do we prevent it from also executing the original triggering command?
+
+#### 💡 Biggest Question
+**The core confusion**: Are we building a true "Claude Code session integration" OR a "triggered standalone SDK integration"?
+- **True Integration**: Claude Code makes AI calls using its session, just tells vpoints to show UI
+- **Triggered SDK**: Hook just triggers vpoints to make its own SDK calls
+
+**Human Response:**
+I don't think we need the SDK anymore based on this implementation path. My understanding is we're allowing the user to optionally integrate with claude code. If they delegate decide to trigger commit creation using the keyword `vpoints` in claude code, our app is just a supplemental UI that will wrap output generated from claude code, allow a user to select the commit message, then claude code uses that selection to perform a `git commit -m <selection>`. Because our app listens for commits, the UI can in the vibepoints app should ideally update.
+
+#### Flow Clarification Needed
+
+**The Flow I Understand:**
+1. User: "create a vpoint" in Claude Code
+2. Hook triggers `vpoints-suggest` 
+3. vpoints shows selection UI
+4. User picks Vibecoder/Prototyper style
+5. Claude Code gets selection and runs `git commit -m "<selection>"`
+6. vpoints detects git change and updates UI ✅
+
+#### 🔴 The Missing Pieces:
+
+**Where do the AI suggestions come from?**
+- You said vpoints "wraps output generated from Claude Code"
+- But how does Claude Code know to generate **two specific styles** (Vibecoder vs Prototyper)?
+- Does Claude Code automatically analyze git diff when it sees "vpoint"?
+
+**How do suggestions get passed to vpoints?**
+Current IPC design:
+- `vpoints-suggest` writes trigger: `"suggest_commit"` 
+- vpoints shows generic loading screen
+- But where are the actual **commit message options**?
+
+### Enhanced Hook Flow Design
+
+**Human Question:** Can we build the hook in a way to where Claude Code creates the 2 suggestions, then those suggestions flow to the vibepoints app?
+
+#### **Step 1: Hook Prompts Claude Code for Suggestions**
+```json
+{
+  "hooks": {
+    "PreToolUse": [{
+      "matcher": "Bash",
+      "pattern": ".*vpoint.*",
+      "hooks": [{
+        "type": "command",
+        "command": "vpoints-suggest-request"
+      }]
+    }]
+  }
+}
+```
+
+#### **Step 2: `vpoints-suggest-request` Script**
+```bash
+#!/bin/bash
+# This script prompts Claude Code to generate suggestions
+
+echo "Please generate two commit message styles for the current git changes:
+
+1. **Vibecoder style**: Natural, conversational language that connects user intent to implementation
+2. **Prototyper style**: Conventional commits format (feat:, fix:, refactor:, etc.)
+
+Analyze the current git diff and provide both options. Format your response as:
+
+VIBECODER: [message]
+PROTOTYPER: [message]"
+```
+
+#### **Step 3: Claude Code Generates Both Options**
+Claude analyzes git diff and responds:
+```
+VIBECODER: Added dark mode toggle to settings page
+PROTOTYPER: feat: add dark mode toggle component with context provider
+```
+
+#### **Step 4: Hook Captures Response**
+```bash
+# Enhanced hook script captures Claude's response
+claude_response=$(# ... get Claude's output ...)
+
+# Parse and pass to vpoints
+echo "$claude_response" > /tmp/vpoints_suggestions
+
+# Signal vpoints
+echo "suggestions_ready" > /tmp/vpoints_trigger
+```
+
+#### **Step 5: vpoints Shows Actual Suggestions**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Claude's Suggestions                                                │
+│                                                                     │
+│ > 1 Vibecoder: Added dark mode toggle to settings page             │
+│   2 Prototyper: feat: add dark mode toggle component with context  │
+│                                                                     │
+│ Press 1-2 to select • Enter to confirm • Esc to go back           │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Question**: Can Claude Code hooks capture the LLM's text response and pipe it to external commands? That's the key technical piece we'd need to make this work.
+
+### Workflow Mismatch Problem
+
+**Human provided expected workflow:**
+1. They open claude code in one terminal instance
+2. They open vibepoints in another terminal instance
+3. In terminal 1, they ask claude code to implement a feature
+4. Claude code writes the code
+5. Claude code finishes
+6. The user wants to create a commit via vibepoints
+7. **The user decides to write to claude code in a prompt, "create a vpoint"**
+
+**The Problem with Current Implementation:**
+- **User's actual workflow (step 7):** User writes "create a vpoint" as a **conversational prompt** to Claude Code
+- **Our current hook design:** Only triggers when Claude Code is about to execute a **bash command** containing "vpoint"
+- **What Actually Happens:**
+  1. User: "create a vpoint" (conversational message)
+  2. Claude Code: *responds conversationally*
+  3. Claude Code: *might run `git add .` and `git commit -m "implemented feature"`*
+  4. **Hook never triggers** because no bash command contained "vpoint"
+
+**The Disconnect:**
+- **User expects:** Say "create a vpoint" → get AI suggestions
+- **Current implementation:** Only works if Claude Code runs bash commands with "vpoint"
+
+### Solution: UserPromptSubmit Hook (Option A)
+
+**After researching the complete hooks API, found `UserPromptSubmit` hook:**
+- Triggers when a user submits a prompt
+- Enables prompt validation, context injection, or blocking specific prompts
+- **Perfect for intercepting conversational messages**
+
+#### Enhanced Hook Configuration
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [{
+      "matcher": "content",
+      "pattern": ".*vpoint.*",
+      "hooks": [{
+        "type": "command",
+        "command": "vpoints-intercept-prompt"
+      }]
+    }]
+  }
+}
+```
+
+#### Enhanced Flow
+**Step 1:** User types "create a vpoint" in Claude Code  
+**Step 2:** `UserPromptSubmit` hook intercepts the message  
+**Step 3:** `vpoints-intercept-prompt` script runs:
+
+```bash
+#!/bin/bash
+# /usr/local/bin/vpoints-intercept-prompt
+
+# Extract user message from hook JSON input
+user_message=$(echo "$1" | jq -r '.prompt.content')
+
+# Signal vpoints to show loading screen
+echo "intercepted" > /tmp/vpoints_trigger
+
+# Tell Claude Code to analyze changes and generate suggestions
+echo "I see you want to create a vpoint. Let me analyze the current git changes and suggest two commit message styles:
+
+1. **Vibecoder style**: Natural, conversational language
+2. **Prototyper style**: Conventional commits format
+
+$(git diff --staged)
+
+Please provide both formats as:
+VIBECODER: [message]
+PROTOTYPER: [message]"
+```
+
+**Step 4:** Claude Code generates suggestions  
+**Step 5:** Another hook (PostToolUse?) captures Claude's response  
+**Step 6:** Parse and send suggestions to vpoints  
+**Step 7:** User selects in vpoints UI  
+**Step 8:** Send selected message back for commit  
+
+**This approach intercepts the conversational prompt directly, which perfectly matches the user workflow!**
+
+## Expected UX Summary
+
+### Setup (One-time)
+1. User installs vpoints globally: `npm install -g vibepoints`
+2. User adds hook configuration to Claude Code:
+   ```json
+   {
+     "hooks": {
+       "UserPromptSubmit": [{
+         "matcher": "content",
+         "pattern": ".*vpoint.*",
+         "hooks": [{
+           "type": "command",
+           "command": "vpoints-intercept-prompt"
+         }]
+       }]
+     }
+   }
+   ```
+
+### Daily Workflow
+
+**Terminal Setup**
+- **Terminal 1**: Claude Code running
+- **Terminal 2**: `vpoints` running (stays open)
+
+**Development Flow**
+1. User works with Claude Code to implement features
+2. Claude Code writes/modifies code files
+3. When ready to commit, user types in Claude Code: **"create a vpoint"**
+
+**The Magic Moment**
+4. **Terminal 2** (vpoints) automatically switches to loading screen:
+   ```
+   ┌─────────────────────────────────────────────────────────────────────┐
+   │                                                                     │
+   │ * Analyzing your last sent message and file changes                 │
+   │                                                                     │
+   └─────────────────────────────────────────────────────────────────────┘
+   ```
+   *(Orange text with left-to-right white animation)*
+
+5. **Terminal 1** (Claude Code) generates two commit message styles
+
+6. **Terminal 2** (vpoints) shows suggestions:
+   ```
+   ┌─────────────────────────────────────────────────────────────────────┐
+   │ Claude's Suggestions                                                │
+   │                                                                     │
+   │ > 1 Vibecoder: Added dark mode toggle to settings page             │
+   │   2 Prototyper: feat: add dark mode toggle component with context  │
+   │                                                                     │
+   │ Press 1-2 to select • Enter to confirm • Esc to go back           │
+   └─────────────────────────────────────────────────────────────────────┘
+   ```
+
+7. User selects option (1 or 2) in Terminal 2
+
+8. **Terminal 1** (Claude Code) automatically runs: `git commit -m "selected message"`
+
+9. **Terminal 2** (vpoints) detects new commit and updates history display
+
+### Key UX Benefits
+- **Natural language**: Just say "create a vpoint" - no commands to remember
+- **Seamless integration**: Works within existing Claude Code workflow
+- **Visual separation**: AI suggestions appear in dedicated vpoints terminal
+- **Two persona options**: Vibecoder (natural) vs Prototyper (conventional commits)
+- **No API keys needed**: Uses existing Claude Code Pro/Max subscription
+- **Familiar patterns**: Loading animation matches Claude Code's style
+
+### Error Handling UX
+- If vpoints isn't running: Clear error message with instructions
+- 30-second timeout prevents hanging
+- Graceful fallback to normal commit flow
+
+**The result feels like Claude Code and vpoints are working together as one integrated system, while maintaining the clean two-terminal separation users expect.**
+
+---
+
+**Version:** 1.4  
+**Status:** Draft - Complete UX Overview  
 **Last Updated:** [Current Date]
