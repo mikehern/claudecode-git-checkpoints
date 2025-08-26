@@ -18,6 +18,7 @@ const __dirname = path.dirname(__filename);
 
 const GitCommitHistoryApp = () => {
   const [commits, setCommits] = useState([]);
+  const [currentBranch, setCurrentBranch] = useState("");
   const [lastClaudeInput, setLastClaudeInput] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isGitRepository, setIsGitRepository] = useState(null); // null = checking, true = valid, false = invalid
@@ -1017,6 +1018,18 @@ Return valid JSON only:
     }
   };
 
+  // Get current git branch name
+  const getCurrentBranch = async () => {
+    try {
+      const git = simpleGit(process.cwd());
+      const branchInfo = await git.branch();
+      setCurrentBranch(branchInfo.current);
+    } catch (error) {
+      // If branch check fails, clear branch name
+      setCurrentBranch("");
+    }
+  };
+
   // Check if current directory is a git repository
   const checkGitRepository = async () => {
     try {
@@ -1040,6 +1053,7 @@ Return valid JSON only:
       loadCommits();
       loadLastClaudeInput();
       checkUncommittedChanges();
+      getCurrentBranch();
     } else if (isGitRepository === false) {
       // Exit early if not in a git repository
       return;
@@ -1058,6 +1072,7 @@ Return valid JSON only:
           if (eventType === "change") {
             loadCommits();
             checkUncommittedChanges();
+            getCurrentBranch();
           }
         });
       } else {
@@ -1495,6 +1510,8 @@ Return valid JSON only:
           await git.init();
           // Re-check git repository status
           setIsGitRepository(true);
+          // Load branch info for the new repo
+          getCurrentBranch();
           playAnimationSound();
         } catch (error) {
           console.error("Failed to initialize git repository:", error.message);
@@ -2594,12 +2611,14 @@ Return valid JSON only:
       // Blank line
       React.createElement(Text, null, " "),
 
-      // Commit count with blue check mark and uncommitted changes warning
+      // Status line: uncommitted changes warning, branch name, commit count
       React.createElement(
         Text,
         null,
         hasUncommittedChanges &&
           React.createElement(Text, { color: "red" }, "! "),
+        currentBranch &&
+          React.createElement(Text, { color: "blue" }, `${currentBranch} `),
         `${commits.length} `,
         React.createElement(Text, { color: "blue" }, "✓")
       )
