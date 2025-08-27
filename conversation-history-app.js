@@ -2606,7 +2606,7 @@ Return valid JSON only:
             Text,
             { color: "gray" },
             hasCommits
-              ? "Use ↑↓ to navigate • 1 to create • d for details • r to revert to this savepoint • u to undo last vibepoint • o for options • x to exit"
+              ? "Use ↑↓ to navigate • 1 to create • d for details • r to revert to this savepoint • u to undo last savepoint • o for options • x to exit"
               : "1 to create your first vibepoint • o for options • x to exit"
           )
         )
