@@ -1,8 +1,0 @@
-blank_issues_enabled: false
-contact_links:
-  - name: Q&A and usage questions
-    url: https://github.com/mikehern/claudecode-git-checkpoints/discussions
-    about: Ask questions and share ideas in Discussions.
-  - name: Roadmap and ideas
-    url: https://github.com/mikehern/claudecode-git-checkpoints/discussions/categories/ideas
-    about: Propose and upvote ideas in the Ideas category.
