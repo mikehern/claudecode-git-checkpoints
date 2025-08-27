@@ -45,7 +45,7 @@ const GitCommitHistoryApp = () => {
   const [successAnimatingIndex, setSuccessAnimatingIndex] = useState(-1);
   const [successAnimationProgress, setSuccessAnimationProgress] = useState(0);
   const [successAnimationPhase, setSuccessAnimationPhase] = useState(1); // 1 = turning green, 2 = turning back to default
-  const [options, setOptions] = useState({ audio: true, customPrefix: true });
+  const [options, setOptions] = useState({ audio: true, customPrefix: true, autoCheckpoint: false });
   const [optionsSelectedIndex, setOptionsSelectedIndex] = useState(0);
   const [hasUncommittedChanges, setHasUncommittedChanges] = useState(false);
   const [fileChangesCount, setFileChangesCount] = useState(0);
@@ -54,6 +54,13 @@ const GitCommitHistoryApp = () => {
     modified: [],
     removed: [],
   });
+
+  // Auto-checkpoint feature state
+  const [lastProcessedInput, setLastProcessedInput] = useState(null);
+  const [autoCommitFlashActive, setAutoCommitFlashActive] = useState(false);
+  const [autoCommitFlashTimer, setAutoCommitFlashTimer] = useState(null);
+  const [isAutoCommitting, setIsAutoCommitting] = useState(false);
+  const [lastAutoCommitTime, setLastAutoCommitTime] = useState(0);
 
   // Claude Decide feature state
   const [showClaudeDecide, setShowClaudeDecide] = useState(false);
@@ -91,7 +98,7 @@ const GitCommitHistoryApp = () => {
     } catch (error) {
       // Use defaults on error
     }
-    return { audio: true, customPrefix: true };
+    return { audio: true, customPrefix: true, autoCheckpoint: false };
   };
 
   // Save options to file
@@ -854,6 +861,76 @@ Return valid JSON only:
     }
   };
 
+  // Auto-checkpoint functionality
+  const triggerAutoCommitFlash = () => {
+    if (autoCommitFlashTimer) {
+      clearTimeout(autoCommitFlashTimer);
+    }
+    
+    setAutoCommitFlashActive(true);
+    
+    const timer = setTimeout(() => {
+      setAutoCommitFlashActive(false);
+      setAutoCommitFlashTimer(null);
+    }, 1000);
+    
+    setAutoCommitFlashTimer(timer);
+  };
+
+  const handleAutoCheckpoint = async (inputText) => {
+    if (showCreateCheckpoint || showClaudeDecide || showCustomLabel || showCustomDescription) {
+      return; // Don't interfere with manual flows
+    }
+
+    setIsAutoCommitting(true);
+    try {
+      const git = simpleGit(process.cwd());
+      
+      // Validate git state
+      const status = await git.status();
+      if (status.conflicted.length > 0) return;
+      
+      const branch = await git.branch();
+      if (branch.detached) return;
+      
+      // Check for file changes
+      const fileChanges = await getCurrentFileChanges();
+      const hasChanges = fileChanges.added.length > 0 || 
+                        fileChanges.modified.length > 0 || 
+                        fileChanges.removed.length > 0;
+      
+      await git.add(".");
+      
+      // Format commit message
+      const prefix = hasChanges ? "[AUTO]" : "[AUTO-EMPTY]";
+      const maxLength = 72 - prefix.length - 1;
+      const truncatedText = inputText.length > maxLength 
+        ? inputText.slice(0, maxLength - 3) + "..."
+        : inputText;
+      const commitMessage = `${prefix} ${truncatedText}`;
+      
+      // Commit with appropriate flags
+      if (hasChanges) {
+        await git.commit(commitMessage);
+      } else {
+        await git.commit(commitMessage, ["--allow-empty"]);
+      }
+      
+      // UI feedback
+      triggerAutoCommitFlash();
+      loadCommits();
+      
+      if (options.audio) {
+        playCheckpointSound();
+      }
+      
+    } catch (error) {
+      console.error("Auto-checkpoint failed:", error);
+    } finally {
+      setIsAutoCommitting(false);
+    }
+  };
+
   // Undo last commit (git reset --hard HEAD~1)
   const undoLastCommit = async () => {
     try {
@@ -1132,6 +1209,35 @@ Return valid JSON only:
       clearInterval(statusInterval);
     };
   }, [isGitRepository]);
+
+  // Auto-checkpoint trigger effect
+  useEffect(() => {
+    if (!options.autoCheckpoint || !lastClaudeInput?.text || isAutoCommitting) return;
+    
+    const now = Date.now();
+    const MIN_INTERVAL = 30000; // 30 seconds rate limit
+    
+    if (now - lastAutoCommitTime < MIN_INTERVAL) return;
+    
+    if (lastProcessedInput !== lastClaudeInput.text) {
+      const timer = setTimeout(() => {
+        handleAutoCheckpoint(lastClaudeInput.text);
+        setLastProcessedInput(lastClaudeInput.text);
+        setLastAutoCommitTime(now);
+      }, 1500); // Debounce for file system stability
+      
+      return () => clearTimeout(timer);
+    }
+  }, [lastClaudeInput?.text, options.autoCheckpoint, lastProcessedInput, lastAutoCommitTime, isAutoCommitting]);
+
+  // Cleanup auto-commit flash timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoCommitFlashTimer) {
+        clearTimeout(autoCommitFlashTimer);
+      }
+    };
+  }, [autoCommitFlashTimer]);
 
   // Handle keyboard input
   useInput((input, key) => {
@@ -1722,6 +1828,11 @@ Return valid JSON only:
     {
       key: "customPrefix",
       label: "Prefix custom messages with 'Checkpoint'",
+      type: "boolean",
+    },
+    {
+      key: "autoCheckpoint",
+      label: "Auto-checkpoint Mode",
       type: "boolean",
     },
   ];
@@ -2593,7 +2704,11 @@ Return valid JSON only:
         Box,
         {
           borderStyle: "round",
-          borderColor: hasUncommittedChanges ? "redBright" : "green",
+          borderColor: autoCommitFlashActive 
+            ? "#FFA500"  // Orange flash takes priority
+            : hasUncommittedChanges 
+              ? "redBright" 
+              : "green",
           padding: 1,
         },
         React.createElement(
@@ -2656,6 +2771,8 @@ Return valid JSON only:
           React.createElement(Text, { color: "blue" }, `${currentBranch} `),
         `${commits.length} `,
         React.createElement(Text, { color: "blue" }, "✓"),
+        options.autoCheckpoint &&
+          React.createElement(Text, { color: "orange" }, " [AUTO]"),
         fileChangesCount > 0 &&
           React.createElement(
             Text,
