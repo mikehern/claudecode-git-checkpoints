@@ -1,43 +1,35 @@
 # Installation Instructions
 
+## Prerequisites
+
+- Node.js >= 16
+- Git installed and available in PATH
+
 ## Global Installation
 
-To install `vibepoints` globally so you can run `vpoints` from any directory:
+Install directly from GitHub:
 
 ```bash
-# Install globally from this directory
-npm install -g .
+npm install -g github:mikehern/claudecode-git-checkpoints
 
-# Or if you want to install from npm registry (once published)
-npm install -g vibepoints
-```
+Verify installation:
+which vpoints    # macOS/Linux
+where vpoints    # Windows
 
-## Usage
+Usage
 
-After installation, you can run `vpoints` from any git repository:
+Run vpoints from any git repository:
 
-```bash
 cd /path/to/your/git/repo
 vpoints
-```
 
-## Features After Global Installation
+Update
 
-1. **Universal Access**: Run `vpoints` from any directory that contains a git repository
-2. **Global Options**: Your audio and prefix settings are preserved across all projects in `~/.config/vibepoints/options.json`
-3. **Directory-Specific Claude History**: The app automatically detects which Claude Code conversation history to use based on your current directory
-4. **Git Repository Validation**: The app will only run in directories that are git repositories
+To update to the latest version:
 
-## Directory Structure
+npm install -g github:mikehern/claudecode-git-checkpoints
 
-After installation, your config will be stored in:
-- **macOS/Linux**: `~/.config/vibepoints/options.json`
-- **Sound files**: Bundled with the global installation
+Uninstall
 
-## Uninstalling
-
-```bash
 npm uninstall -g vibepoints
 ```
-
-This will remove the global `vpoints` command but preserve your config file.
