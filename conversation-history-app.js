@@ -1254,6 +1254,13 @@ Return valid JSON only:
     }
   }, [lastClaudeInput?.text, options.autoCheckpoint, lastProcessedInput, lastAutoCommitTime, isAutoCommitting]);
 
+  // Initialize lastProcessedInput on startup to prevent auto-committing existing messages
+  useEffect(() => {
+    if (lastClaudeInput?.text && lastProcessedInput === null) {
+      setLastProcessedInput(lastClaudeInput.text); // Initialize without committing
+    }
+  }, [lastClaudeInput?.text, lastProcessedInput]);
+
   // Cleanup auto-commit timers on unmount
   useEffect(() => {
     return () => {
