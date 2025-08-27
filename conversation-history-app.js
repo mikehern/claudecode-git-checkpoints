@@ -1239,7 +1239,7 @@ Return valid JSON only:
     if (!options.autoCheckpoint || !lastClaudeInput?.text || isAutoCommitting) return;
     
     const now = Date.now();
-    const MIN_INTERVAL = 30000; // 30 seconds rate limit
+    const MIN_INTERVAL = 3000; // 3 seconds rate limit
     
     if (now - lastAutoCommitTime < MIN_INTERVAL) return;
     
