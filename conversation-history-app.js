@@ -61,6 +61,8 @@ const GitCommitHistoryApp = () => {
   const [autoCommitFlashTimer, setAutoCommitFlashTimer] = useState(null);
   const [isAutoCommitting, setIsAutoCommitting] = useState(false);
   const [lastAutoCommitTime, setLastAutoCommitTime] = useState(0);
+  const [autoCommitCooldownActive, setAutoCommitCooldownActive] = useState(false);
+  const [autoCommitCooldownTimer, setAutoCommitCooldownTimer] = useState(null);
 
   // Claude Decide feature state
   const [showClaudeDecide, setShowClaudeDecide] = useState(false);
@@ -862,16 +864,38 @@ Return valid JSON only:
   };
 
   // Auto-checkpoint functionality
+  const startCooldownPeriod = () => {
+    // Clear any existing cooldown timer
+    if (autoCommitCooldownTimer) {
+      clearTimeout(autoCommitCooldownTimer);
+    }
+    
+    // Start cooldown period (29 seconds)
+    setAutoCommitCooldownActive(true);
+    
+    const timer = setTimeout(() => {
+      setAutoCommitCooldownActive(false);
+      setAutoCommitCooldownTimer(null);
+    }, 29000); // 29 seconds
+    
+    setAutoCommitCooldownTimer(timer);
+  };
+
   const triggerAutoCommitFlash = () => {
+    // Clear any existing flash timer
     if (autoCommitFlashTimer) {
       clearTimeout(autoCommitFlashTimer);
     }
     
+    // Start orange flash (1 second)
     setAutoCommitFlashActive(true);
     
     const timer = setTimeout(() => {
       setAutoCommitFlashActive(false);
       setAutoCommitFlashTimer(null);
+      
+      // After flash ends, start cooldown period
+      startCooldownPeriod();
     }, 1000);
     
     setAutoCommitFlashTimer(timer);
@@ -1230,7 +1254,7 @@ Return valid JSON only:
     }
   }, [lastClaudeInput?.text, options.autoCheckpoint, lastProcessedInput, lastAutoCommitTime, isAutoCommitting]);
 
-  // Cleanup auto-commit flash timer on unmount
+  // Cleanup auto-commit timers on unmount
   useEffect(() => {
     return () => {
       if (autoCommitFlashTimer) {
@@ -1238,6 +1262,14 @@ Return valid JSON only:
       }
     };
   }, [autoCommitFlashTimer]);
+
+  useEffect(() => {
+    return () => {
+      if (autoCommitCooldownTimer) {
+        clearTimeout(autoCommitCooldownTimer);
+      }
+    };
+  }, [autoCommitCooldownTimer]);
 
   // Handle keyboard input
   useInput((input, key) => {
@@ -2703,7 +2735,9 @@ Return valid JSON only:
       React.createElement(
         Box,
         {
-          borderStyle: "round",
+          borderStyle: autoCommitFlashActive || !autoCommitCooldownActive 
+            ? "round"    // Orange flash or ready state
+            : "classic", // Cooldown period
           borderColor: autoCommitFlashActive 
             ? "#FFA500"  // Orange flash takes priority
             : hasUncommittedChanges 
