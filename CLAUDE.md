@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is "vibepoints" - a terminal-based React app built with Ink that provides a git commit checkpoint management interface for Claude Code workflows. The app allows users to create, undo, and revert git commits with an interactive CLI interface.
+This is "checkpoints" - a terminal-based React app built with Ink that provides a git commit checkpoint management interface for Claude Code workflows. The app allows users to create, undo, and revert git commits with an interactive CLI interface.
 
 ## Architecture
 
@@ -26,7 +26,7 @@ npm run dev
 
 ## Key Features & Workflows
 
-- **Vibepoint Creation**: Stages all changes and commits with the last Claude input as commit message
+- **Checkpoint Creation**: Stages all changes and commits with the last Claude input as commit message
 - **Interactive History**: Navigate through git commits with keyboard shortcuts
 - **Undo/Revert**: Git reset and revert operations with confirmation dialogs
 - **Sound Effects**: Audio feedback for actions (can be disabled in options)

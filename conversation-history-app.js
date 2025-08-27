@@ -27,11 +27,11 @@ const GitCommitHistoryApp = () => {
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
   const [selectedRevertCommit, setSelectedRevertCommit] = useState(null);
-  const [showCreateVibepoint, setShowCreateVibepoint] = useState(false);
-  const [createVibepointSelectedIndex, setCreateVibepointSelectedIndex] =
+  const [showCreateCheckpoint, setShowCreateCheckpoint] = useState(false);
+  const [createCheckpointSelectedIndex, setCreateCheckpointSelectedIndex] =
     useState(0);
-  const [createVibepointError, setCreateVibepointError] = useState(null);
-  const [showVibepointDetails, setShowVibepointDetails] = useState(false);
+  const [createCheckpointError, setCreateCheckpointError] = useState(null);
+  const [showCheckpointDetails, setShowCheckpointDetails] = useState(false);
   const [selectedCommitDetails, setSelectedCommitDetails] = useState(null);
   const [commitFileChanges, setCommitFileChanges] = useState({
     added: [],
@@ -74,7 +74,7 @@ const GitCommitHistoryApp = () => {
   const optionsPath = path.join(
     os.homedir(),
     ".config",
-    "vibepoints",
+    "checkpoints",
     "options.json"
   );
 
@@ -161,11 +161,11 @@ const GitCommitHistoryApp = () => {
     }
   };
 
-  // Play vibepoint sound
-  const playVibepointSound = () => {
+  // Play checkpoint sound
+  const playCheckpointSound = () => {
     if (!options.audio) return;
     try {
-      player.play(path.join(__dirname, "sounds/vibepoint.wav"));
+      player.play(path.join(__dirname, "sounds/checkpoint.wav"));
     } catch (error) {
       // Silently fail if sound can't be played
     }
@@ -202,7 +202,7 @@ const GitCommitHistoryApp = () => {
 
       setCommits(commitList);
 
-      // Keep "Create vibepoint" selected (index 0) and reset window
+      // Keep "Create checkpoint" selected (index 0) and reset window
       setSelectedIndex(0);
       setWindowStart(0);
     } catch (error) {
@@ -221,16 +221,16 @@ const GitCommitHistoryApp = () => {
         setCommits([]);
       }
 
-      // Keep "Create vibepoint" selected (index 0) and reset window
+      // Keep "Create checkpoint" selected (index 0) and reset window
       setSelectedIndex(0);
       setWindowStart(0);
     }
   };
 
-  // Create vibepoint with last user input
-  const createVibepointWithLastInput = async () => {
+  // Create checkpoint with last user input
+  const createCheckpointWithLastInput = async () => {
     try {
-      setCreateVibepointError(null);
+      setCreateCheckpointError(null);
       const git = simpleGit(process.cwd());
 
       // Get the commit message from the actual displayed text (without the "1 " prefix)
@@ -247,17 +247,17 @@ const GitCommitHistoryApp = () => {
 
       // Refresh the commit list and return to main page
       loadCommits();
-      setShowCreateVibepoint(false);
+      setShowCreateCheckpoint(false);
 
-      // Start success animation for the newly created commit (index 1 because "Create vibepoint" is at 0)
+      // Start success animation for the newly created commit (index 1 because "Create checkpoint" is at 0)
       setSuccessAnimatingIndex(1);
       setSuccessAnimationProgress(0);
 
-      // Play vibepoint success sound
-      playVibepointSound();
+      // Play checkpoint success sound
+      playCheckpointSound();
     } catch (error) {
-      console.error("Failed to create vibepoint:", error.message);
-      setCreateVibepointError(`Error: ${error.message}`);
+      console.error("Failed to create checkpoint:", error.message);
+      setCreateCheckpointError(`Error: ${error.message}`);
     }
   };
 
@@ -367,14 +367,14 @@ const GitCommitHistoryApp = () => {
     }
   };
 
-  // Create custom vibepoint with label and description
-  const createCustomVibepoint = async (label, description) => {
+  // Create custom checkpoint with label and description
+  const createCustomCheckpoint = async (label, description) => {
     try {
-      setCreateVibepointError(null);
+      setCreateCheckpointError(null);
       const git = simpleGit(process.cwd());
 
       // Apply prefix if enabled
-      const finalLabel = options.customPrefix ? `Vibe: ${label}` : label;
+      const finalLabel = options.customPrefix ? `Checkpoint: ${label}` : label;
 
       // Format commit message: label + empty line + description
       const commitMessage = description.trim()
@@ -398,11 +398,11 @@ const GitCommitHistoryApp = () => {
       setSuccessAnimatingIndex(1);
       setSuccessAnimationProgress(0);
 
-      // Play vibepoint success sound
-      playVibepointSound();
+      // Play checkpoint success sound
+      playCheckpointSound();
     } catch (error) {
-      console.error("Failed to create custom vibepoint:", error.message);
-      setCreateVibepointError(`Error: ${error.message}`);
+      console.error("Failed to create custom checkpoint:", error.message);
+      setCreateCheckpointError(`Error: ${error.message}`);
     }
   };
 
@@ -812,8 +812,8 @@ Return valid JSON only:
     }
   };
 
-  // Create Claude Decide vibepoint
-  const createClaudeDecideVibepoint = async (message) => {
+  // Create Claude Decide checkpoint
+  const createClaudeDecideCheckpoint = async (message) => {
     try {
       setClaudeDecideError(null);
       setPartialError(null);
@@ -836,17 +836,17 @@ Return valid JSON only:
       // Refresh the commit list and return to main page
       loadCommits();
 
-      // Start success animation for the newly created commit (index 1 because "Create vibepoint" is at 0)
+      // Start success animation for the newly created commit (index 1 because "Create checkpoint" is at 0)
       setSuccessAnimatingIndex(1);
       setSuccessAnimationProgress(0);
 
-      // Play vibepoint success sound
-      playVibepointSound();
+      // Play checkpoint success sound
+      playCheckpointSound();
     } catch (error) {
-      console.error("Failed to create Claude decide vibepoint:", error.message);
+      console.error("Failed to create Claude decide checkpoint:", error.message);
 
       // Stay in Claude Decide flow for error handling
-      setClaudeDecideError(`Failed to create vibepoint: ${error.message}`);
+      setClaudeDecideError(`Failed to create checkpoint: ${error.message}`);
       setClaudeDecideState("error");
     }
   };
@@ -1137,7 +1137,7 @@ Return valid JSON only:
       if (key.escape) {
         playNextSound();
         setShowClaudeDecide(false);
-        setShowCreateVibepoint(true);
+        setShowCreateCheckpoint(true);
         return;
       }
       return; // Block all other input during loading
@@ -1148,7 +1148,7 @@ Return valid JSON only:
       if (key.escape) {
         playNextSound();
         setShowClaudeDecide(false);
-        setShowCreateVibepoint(true);
+        setShowCreateCheckpoint(true);
         return;
       }
 
@@ -1176,7 +1176,7 @@ Return valid JSON only:
         playAnimationSound();
 
         // Create commit with selected message using Claude Decide flow
-        createClaudeDecideVibepoint(selectedMessage);
+        createClaudeDecideCheckpoint(selectedMessage);
         return;
       }
 
@@ -1185,7 +1185,7 @@ Return valid JSON only:
         setSelectedSuggestionIndex(0);
         const selectedMessage = claudeSuggestions[0].message;
         playAnimationSound();
-        createClaudeDecideVibepoint(selectedMessage);
+        createClaudeDecideCheckpoint(selectedMessage);
         return;
       }
 
@@ -1193,7 +1193,7 @@ Return valid JSON only:
         setSelectedSuggestionIndex(1);
         const selectedMessage = claudeSuggestions[1].message;
         playAnimationSound();
-        createClaudeDecideVibepoint(selectedMessage);
+        createClaudeDecideCheckpoint(selectedMessage);
         return;
       }
 
@@ -1202,7 +1202,7 @@ Return valid JSON only:
 
     if (showClaudeDecide && claudeDecideState === "error") {
       const isCommitError = claudeDecideError?.includes(
-        "Failed to create vibepoint"
+        "Failed to create checkpoint"
       );
 
       if (input === "r") {
@@ -1213,7 +1213,7 @@ Return valid JSON only:
           if (lastSelectedMessage) {
             setClaudeDecideError(null);
             setPartialError(null);
-            createClaudeDecideVibepoint(lastSelectedMessage);
+            createClaudeDecideCheckpoint(lastSelectedMessage);
           }
         } else {
           // Retry the Claude analysis flow
@@ -1246,14 +1246,14 @@ Return valid JSON only:
       }
 
       if (key.escape) {
-        // Back to create vibepoint menu
+        // Back to create checkpoint menu
         setShowClaudeDecide(false);
         setClaudeDecideState("loading"); // Reset state
         setClaudeSuggestions([]);
         setClaudeDecideError(null);
         setPartialError(null);
         setSelectedSuggestionIndex(0);
-        setShowCreateVibepoint(true);
+        setShowCreateCheckpoint(true);
         return;
       }
 
@@ -1265,7 +1265,7 @@ Return valid JSON only:
       if (key.escape) {
         playNextSound();
         setShowCustomLabel(false);
-        setShowCreateVibepoint(true);
+        setShowCreateCheckpoint(true);
         setCustomLabel("");
 
         // Load current file changes
@@ -1305,7 +1305,7 @@ Return valid JSON only:
 
       if (key.ctrl && input === "d") {
         playAnimationSound();
-        createCustomVibepoint(customLabel, customDescription);
+        createCustomCheckpoint(customLabel, customDescription);
         return;
       }
 
@@ -1321,11 +1321,11 @@ Return valid JSON only:
       return;
     }
 
-    if (showVibepointDetails) {
-      // Vibepoint details page navigation
+    if (showCheckpointDetails) {
+      // Checkpoint details page navigation
       if (key.escape) {
         playNextSound();
-        setShowVibepointDetails(false);
+        setShowCheckpointDetails(false);
         setSelectedCommitDetails(null);
         setCommitFileChanges({ added: [], modified: [], removed: [] });
         return;
@@ -1334,17 +1334,17 @@ Return valid JSON only:
       return;
     }
 
-    if (showCreateVibepoint) {
-      // Create vibepoint page navigation
+    if (showCreateCheckpoint) {
+      // Create checkpoint page navigation
       if (key.escape) {
         playNextSound();
-        setShowCreateVibepoint(false);
-        setCreateVibepointError(null);
+        setShowCreateCheckpoint(false);
+        setCreateCheckpointError(null);
         return;
       }
 
       if (key.upArrow) {
-        setCreateVibepointSelectedIndex((prev) => {
+        setCreateCheckpointSelectedIndex((prev) => {
           const newIndex = Math.max(0, prev - 1);
           if (newIndex !== prev) {
             playMenuSound();
@@ -1354,7 +1354,7 @@ Return valid JSON only:
       }
 
       if (key.downArrow) {
-        setCreateVibepointSelectedIndex((prev) => {
+        setCreateCheckpointSelectedIndex((prev) => {
           const newIndex = Math.min(2, prev + 1); // 3 options (0, 1, 2)
           if (newIndex !== prev) {
             playMenuSound();
@@ -1366,19 +1366,19 @@ Return valid JSON only:
       if (key.return) {
         playAnimationSound();
         // Execute based on currently selected option
-        if (createVibepointSelectedIndex === 0) {
+        if (createCheckpointSelectedIndex === 0) {
           // Execute Option 1 git operations directly
-          setCreateVibepointError(null);
-          createVibepointWithLastInput();
-        } else if (createVibepointSelectedIndex === 1) {
+          setCreateCheckpointError(null);
+          createCheckpointWithLastInput();
+        } else if (createCheckpointSelectedIndex === 1) {
           // Navigate to custom label page
-          setShowCreateVibepoint(false);
+          setShowCreateCheckpoint(false);
           setShowCustomLabel(true);
           setCustomLabel("");
           setCustomDescription("");
-        } else if (createVibepointSelectedIndex === 2) {
+        } else if (createCheckpointSelectedIndex === 2) {
           // Navigate to Claude decide loading
-          setShowCreateVibepoint(false);
+          setShowCreateCheckpoint(false);
           setShowClaudeDecide(true);
           setClaudeDecideState("loading");
           setClaudeDecideError(null);
@@ -1391,24 +1391,24 @@ Return valid JSON only:
 
       // Number key selection and execution
       if (input === "1") {
-        setCreateVibepointSelectedIndex(0);
+        setCreateCheckpointSelectedIndex(0);
         playAnimationSound();
         // Execute Option 1 git operations directly
-        setCreateVibepointError(null);
-        createVibepointWithLastInput();
+        setCreateCheckpointError(null);
+        createCheckpointWithLastInput();
       } else if (input === "2") {
-        setCreateVibepointSelectedIndex(1);
+        setCreateCheckpointSelectedIndex(1);
         playAnimationSound();
         // Navigate to custom label page
-        setShowCreateVibepoint(false);
+        setShowCreateCheckpoint(false);
         setShowCustomLabel(true);
         setCustomLabel("");
         setCustomDescription("");
       } else if (input === "3") {
-        setCreateVibepointSelectedIndex(2);
+        setCreateCheckpointSelectedIndex(2);
         playAnimationSound();
         // Navigate to Claude decide loading
-        setShowCreateVibepoint(false);
+        setShowCreateCheckpoint(false);
         setShowClaudeDecide(true);
         setClaudeDecideState("loading");
         setClaudeDecideError(null);
@@ -1553,8 +1553,8 @@ Return valid JSON only:
 
     if (input === "1") {
       playAnimationSound();
-      setShowCreateVibepoint(true);
-      setCreateVibepointSelectedIndex(0);
+      setShowCreateCheckpoint(true);
+      setCreateCheckpointSelectedIndex(0);
 
       // Load current file changes
       getCurrentFileChanges().then((changes) => {
@@ -1568,14 +1568,14 @@ Return valid JSON only:
         // No commits to view details for, do nothing
         return;
       }
-      // Only show details if a real commit is selected (not "Create vibepoint")
+      // Only show details if a real commit is selected (not "Create checkpoint")
       if (selectedIndex > 0) {
-        const commitIndex = selectedIndex - 1; // Adjust for "Create vibepoint" offset
+        const commitIndex = selectedIndex - 1; // Adjust for "Create checkpoint" offset
         const commit = commits[commitIndex];
         if (commit) {
           playAnimationSound();
           setSelectedCommitDetails(commit);
-          setShowVibepointDetails(true);
+          setShowCheckpointDetails(true);
 
           // Load file changes for this commit
           getCommitFileChanges(commit.hash).then((changes) => {
@@ -1591,9 +1591,9 @@ Return valid JSON only:
         // No commits to revert to, do nothing
         return;
       }
-      // Only show revert confirm if a real commit is selected (not "Create vibepoint")
+      // Only show revert confirm if a real commit is selected (not "Create checkpoint")
       if (selectedIndex > 0) {
-        const commitIndex = selectedIndex - 1; // Adjust for "Create vibepoint" offset
+        const commitIndex = selectedIndex - 1; // Adjust for "Create checkpoint" offset
         const commit = commits[commitIndex];
         if (commit) {
           playAnimationSound();
@@ -1606,10 +1606,10 @@ Return valid JSON only:
 
     if (key.return) {
       if (selectedIndex === 0) {
-        // Selected "Create vibepoint"
+        // Selected "Create checkpoint"
         playAnimationSound();
-        setShowCreateVibepoint(true);
-        setCreateVibepointSelectedIndex(0);
+        setShowCreateCheckpoint(true);
+        setCreateCheckpointSelectedIndex(0);
 
         // Load current file changes
         getCurrentFileChanges().then((changes) => {
@@ -1636,7 +1636,7 @@ Return valid JSON only:
 
     if (key.downArrow) {
       setSelectedIndex((prev) => {
-        const totalItems = commits.length + 1; // +1 for "Create vibepoint"
+        const totalItems = commits.length + 1; // +1 for "Create checkpoint"
         const newIndex = Math.min(totalItems - 1, prev + 1);
         // Only play sound if selection actually changed
         if (newIndex !== prev) {
@@ -1654,7 +1654,7 @@ Return valid JSON only:
   // Success animation effect for newly created commit on main page (two phases)
   useEffect(() => {
     if (successAnimatingIndex !== -1) {
-      const commitIndex = successAnimatingIndex - 1; // Adjust for "Create vibepoint" offset
+      const commitIndex = successAnimatingIndex - 1; // Adjust for "Create checkpoint" offset
       const commit = commits[commitIndex];
       if (!commit) return;
 
@@ -1704,9 +1704,9 @@ Return valid JSON only:
   const hasCommits = commits.length > 0;
   const isEmptyRepository = isGitRepository === true && !hasCommits;
 
-  // Create display items ("Create vibepoint" + commits)
+  // Create display items ("Create checkpoint" + commits)
   const displayItems = [
-    { type: "create", text: "1 Create vibepoint", timestamp: "" },
+    { type: "create", text: "1 Create checkpoint", timestamp: "" },
     ...commits.map((commit) => ({ type: "commit", ...commit })),
   ];
 
@@ -1718,13 +1718,13 @@ Return valid JSON only:
     { key: "audio", label: "Audio", type: "boolean" },
     {
       key: "customPrefix",
-      label: "Prefix custom messages with 'Vibe'",
+      label: "Prefix custom messages with 'Checkpoint'",
       type: "boolean",
     },
   ];
 
-  // Create vibepoint options
-  const getCreateVibepointOptions = () => {
+  // Create checkpoint options
+  const getCreateCheckpointOptions = () => {
     const lastInputText =
       lastClaudeInput && lastClaudeInput.text
         ? lastClaudeInput.text.length > 60
@@ -1761,7 +1761,7 @@ Return valid JSON only:
           React.createElement(
             Text,
             { bold: true, color: "blueBright" },
-            "Are you sure you want to revert to this vibepoint?"
+            "Are you sure you want to revert to this checkpoint?"
           ),
           React.createElement(Text, null, " "),
           React.createElement(Text, null, " "),
@@ -1778,7 +1778,7 @@ Return valid JSON only:
             React.createElement(
               Text,
               null,
-              "This will permanently remove the following vibepoints:"
+              "This will permanently remove the following checkpoints:"
             ),
           ...commitsToLose.map((commit, index) =>
             React.createElement(
@@ -1795,8 +1795,8 @@ Return valid JSON only:
             commitsToLose.length > 0
               ? `WARNING: This will permanently delete ${
                   commitsToLose.length
-                } vibepoint${commitsToLose.length > 1 ? "s" : ""} AND all other`
-              : "This will permanently revert to this vibepoint AND all other"
+                } checkpoint${commitsToLose.length > 1 ? "s" : ""} AND all other`
+              : "This will permanently revert to this checkpoint AND all other"
           ),
           React.createElement(
             Text,
@@ -1833,7 +1833,7 @@ Return valid JSON only:
           React.createElement(
             Text,
             { bold: true, color: "blueBright" },
-            "Are you sure you want to undo the last vibepoint?"
+            "Are you sure you want to undo the last checkpoint?"
           ),
           React.createElement(Text, null, " "),
           React.createElement(Text, null, " "),
@@ -1850,7 +1850,7 @@ Return valid JSON only:
           React.createElement(
             Text,
             null,
-            "This will permanently undo the last vibepoint AND all other changes made after it"
+            "This will permanently undo the last checkpoint AND all other changes made after it"
           ),
           React.createElement(Text, null, "that happened after it."),
           React.createElement(Text, null, " "),
@@ -1867,8 +1867,8 @@ Return valid JSON only:
     );
   };
 
-  // Render Create vibepoint view
-  const renderCreateVibepointView = () => {
+  // Render Create checkpoint view
+  const renderCreateCheckpointView = () => {
     return React.createElement(
       Box,
       { flexDirection: "column", padding: 1 },
@@ -1921,12 +1921,12 @@ Return valid JSON only:
           React.createElement(
             Text,
             { bold: true, color: "blueBright" },
-            "What would you like to name your Vibepoint?"
+            "What would you like to name your Checkpoint?"
           ),
           React.createElement(Text, null, " "),
 
-          getCreateVibepointOptions().map((option, index) => {
-            const isSelected = index === createVibepointSelectedIndex;
+          getCreateCheckpointOptions().map((option, index) => {
+            const isSelected = index === createCheckpointSelectedIndex;
             const indicator = isSelected ? ">" : " ";
 
             return React.createElement(
@@ -1948,16 +1948,16 @@ Return valid JSON only:
           ),
 
           // Error display
-          createVibepointError && React.createElement(Text, null, " "),
-          createVibepointError &&
-            React.createElement(Text, { color: "red" }, createVibepointError)
+          createCheckpointError && React.createElement(Text, null, " "),
+          createCheckpointError &&
+            React.createElement(Text, { color: "red" }, createCheckpointError)
         )
       )
     );
   };
 
-  // Render vibepoint details view
-  const renderVibepointDetailsView = () => {
+  // Render checkpoint details view
+  const renderCheckpointDetailsView = () => {
     if (!selectedCommitDetails) return null;
 
     return React.createElement(
@@ -1972,7 +1972,7 @@ Return valid JSON only:
           React.createElement(
             Text,
             { bold: true, color: "blueBright" },
-            "Vibepoint Details"
+            "Checkpoint Details"
           ),
           React.createElement(Text, null, " "),
 
@@ -2066,7 +2066,7 @@ Return valid JSON only:
           React.createElement(
             Text,
             { bold: true, color: "blueBright" },
-            "Name your vibepoint"
+            "Name your checkpoint"
           ),
           React.createElement(Text, null, " "),
           React.createElement(Text, null, " "),
@@ -2337,7 +2337,7 @@ Return valid JSON only:
   // Render Claude Decide error view
   const renderClaudeDecideErrorView = () => {
     const isCommitError = claudeDecideError?.includes(
-      "Failed to create vibepoint"
+      "Failed to create checkpoint"
     );
 
     return React.createElement(
@@ -2352,7 +2352,7 @@ Return valid JSON only:
           React.createElement(
             Text,
             { bold: true, color: "red" },
-            isCommitError ? "Vibepoint Creation Failed" : "Claude Decide Failed"
+            isCommitError ? "Checkpoint Creation Failed" : "Claude Decide Failed"
           ),
           React.createElement(Text, null, " "),
           React.createElement(Text, null, claudeDecideError),
@@ -2365,7 +2365,7 @@ Return valid JSON only:
                 React.createElement(
                   Text,
                   null,
-                  "• Press 'r' to retry creating vibepoint"
+                  "• Press 'r' to retry creating checkpoint"
                 ),
                 React.createElement(
                   Text,
@@ -2401,7 +2401,7 @@ Return valid JSON only:
     );
   };
 
-  // Render a single display item (create vibepoint or commit)
+  // Render a single display item (create checkpoint or commit)
   const renderDisplayItem = (item, index, isSelected) => {
     const globalIndex = windowStart + index;
     const indicator = isSelected ? ">" : " ";
@@ -2409,7 +2409,7 @@ Return valid JSON only:
     if (item.type === "create") {
       return React.createElement(
         Box,
-        { key: "create-vibepoint", width: "100%", flexDirection: "column" },
+        { key: "create-checkpoint", width: "100%", flexDirection: "column" },
         React.createElement(
           Text,
           {
@@ -2438,7 +2438,7 @@ Return valid JSON only:
     }
 
     // Handle regular commit - now using two lines
-    const commitIndex = globalIndex - 1; // Adjust for "Create vibepoint" offset
+    const commitIndex = globalIndex - 1; // Adjust for "Create checkpoint" offset
     const isSuccessAnimating = globalIndex === successAnimatingIndex;
 
     // Truncate text to prevent wrapping issues
@@ -2517,7 +2517,7 @@ Return valid JSON only:
         React.createElement(
           Box,
           { flexDirection: "column" },
-          // Header with same formatting as "Vibepoint History"
+          // Header with same formatting as "Checkpoint History"
           React.createElement(
             Text,
             { bold: true, color: "blueBright" },
@@ -2569,7 +2569,7 @@ Return valid JSON only:
           React.createElement(
             Text,
             { bold: true, color: "blueBright" },
-            "Vibepoint History"
+            "Checkpoint History"
           ),
           React.createElement(Text, null, " "),
 
@@ -2577,7 +2577,7 @@ Return valid JSON only:
             (visibleItems.length === 1 && visibleItems[0].type === "create")
             ? [
                 renderDisplayItem(
-                  { type: "create", text: "1 Create vibepoint" },
+                  { type: "create", text: "1 Create checkpoint" },
                   0,
                   selectedIndex === 0
                 ),
@@ -2588,7 +2588,7 @@ Return valid JSON only:
                     key: "status",
                   },
                   isEmptyRepository
-                    ? "No commits yet - create your first vibepoint!"
+                    ? "No commits yet - create your first checkpoint!"
                     : "Loading commits..."
                 ),
               ]
@@ -2607,7 +2607,7 @@ Return valid JSON only:
             { color: "gray" },
             hasCommits
               ? "Use ↑↓ to navigate • 1 to create • d for details • r to revert to this savepoint • u to undo last savepoint • o for options • x to exit"
-              : "1 to create your first vibepoint • o for options • x to exit"
+              : "1 to create your first checkpoint • o for options • x to exit"
           )
         )
       ),
@@ -2663,7 +2663,7 @@ Return valid JSON only:
           React.createElement(
             Text,
             null,
-            "Vibepoints can only run in directories that are git repositories."
+            "Checkpoints can only run in directories that are git repositories."
           ),
           React.createElement(Text, null, " "),
           React.createElement(Text, null, "Our project directory is:"),
@@ -2707,12 +2707,12 @@ Return valid JSON only:
     return renderCustomDescriptionView();
   }
 
-  if (showVibepointDetails) {
-    return renderVibepointDetailsView();
+  if (showCheckpointDetails) {
+    return renderCheckpointDetailsView();
   }
 
-  if (showCreateVibepoint) {
-    return renderCreateVibepointView();
+  if (showCreateCheckpoint) {
+    return renderCreateCheckpointView();
   }
 
   if (showRevertConfirm) {

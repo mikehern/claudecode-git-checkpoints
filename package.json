@@ -1,5 +1,5 @@
 {
-  "name": "vibepoints",
+  "name": "checkpoints",
   "version": "1.0.0",
   "type": "module",
   "description": "Terminal app to quickly create, undo, and revert checkpoints while working with Claude Code",
