@@ -2505,39 +2505,53 @@ Return valid JSON only:
     return React.createElement(
       Box,
       { flexDirection: "column", padding: 1 },
-      // Gray box with last Claude input
+      // "Where You and Claude Left Off" section with orange border
       React.createElement(
         Box,
         {
-          borderStyle: "",
+          borderStyle: "round",
+          borderColor: "#ffe4b2ff",
           padding: 1,
           marginBottom: 1,
         },
         React.createElement(
           Box,
-          { flexDirection: "row" },
-          // Left column - timestamp and arrow
+          { flexDirection: "column" },
+          // Header with same formatting as "Vibepoint History"
           React.createElement(
-            Box,
-            { width: 12, flexShrink: 0 },
-            React.createElement(
-              Text,
-              { color: "gray" },
-              lastClaudeInput && lastClaudeInput.timestamp
-                ? `${lastClaudeInput.timestamp.split(" at ")[1]} ►`
-                : ""
-            )
+            Text,
+            { bold: true, color: "blueBright" },
+            "You and Claude"
           ),
-          // Right column - message text
+          React.createElement(Text, null, " "),
+
+          // Content with timestamp and message
           React.createElement(
             Box,
-            { flexGrow: 1 },
+            { flexDirection: "row" },
+            // Left column - timestamp and arrow
             React.createElement(
-              Text,
-              { color: "gray", wrap: "wrap" },
-              lastClaudeInput && lastClaudeInput.text
-                ? lastClaudeInput.text
-                : "No recent Claude Code input found"
+              Box,
+              { width: 12, flexShrink: 0 },
+              React.createElement(
+                Text,
+                { color: "gray" },
+                lastClaudeInput && lastClaudeInput.timestamp
+                  ? `${lastClaudeInput.timestamp.split(" at ")[1]} ►`
+                  : ""
+              )
+            ),
+            // Right column - message text
+            React.createElement(
+              Box,
+              { flexGrow: 1 },
+              React.createElement(
+                Text,
+                { color: "gray", wrap: "wrap" },
+                lastClaudeInput && lastClaudeInput.text
+                  ? lastClaudeInput.text
+                  : "No recent Claude Code input found"
+              )
             )
           )
         )
@@ -2545,7 +2559,7 @@ Return valid JSON only:
       React.createElement(
         Box,
         {
-          borderStyle: "single",
+          borderStyle: "round",
           borderColor: hasUncommittedChanges ? "redBright" : undefined,
           padding: 1,
         },
