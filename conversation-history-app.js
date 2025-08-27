@@ -843,7 +843,10 @@ Return valid JSON only:
       // Play checkpoint success sound
       playCheckpointSound();
     } catch (error) {
-      console.error("Failed to create Claude decide checkpoint:", error.message);
+      console.error(
+        "Failed to create Claude decide checkpoint:",
+        error.message
+      );
 
       // Stay in Claude Decide flow for error handling
       setClaudeDecideError(`Failed to create checkpoint: ${error.message}`);
@@ -1795,7 +1798,9 @@ Return valid JSON only:
             commitsToLose.length > 0
               ? `WARNING: This will permanently delete ${
                   commitsToLose.length
-                } checkpoint${commitsToLose.length > 1 ? "s" : ""} AND all other`
+                } checkpoint${
+                  commitsToLose.length > 1 ? "s" : ""
+                } AND all other`
               : "This will permanently revert to this checkpoint AND all other"
           ),
           React.createElement(
@@ -2352,7 +2357,9 @@ Return valid JSON only:
           React.createElement(
             Text,
             { bold: true, color: "red" },
-            isCommitError ? "Checkpoint Creation Failed" : "Claude Decide Failed"
+            isCommitError
+              ? "Checkpoint Creation Failed"
+              : "Claude Decide Failed"
           ),
           React.createElement(Text, null, " "),
           React.createElement(Text, null, claudeDecideError),
@@ -2511,13 +2518,23 @@ Return valid JSON only:
         { justifyContent: "flex-start" },
         React.createElement(
           Text,
-          { color: "blueBright" },
+          { color: "white" },
           `     ________              __               _       __
     / ____/ /_  ___  _____/ /______  ____  (_)___  / /______
    / /   / __ \\/ _ \\/ ___/ //_/ __ \\/ __ \\/ / __ \\/ __/ ___/
   / /___/ / / /  __/ /__/ ,< / /_/ / /_/ / / / / / /_(__  )
   \\____/_/ /_/\\___/\\___/_/|_/ .___/\\____/_/_/ /_/\\__/____/
                            /_/`
+        )
+      ),
+      React.createElement(
+        Box,
+        { justifyContent: "flex-start" },
+        React.createElement(
+          Text,
+          null,
+          React.createElement(Text, { color: "gray" }, "  for "),
+          chalk.hex("#FFA500")("Claude Code")
         )
       ),
       React.createElement(Text, null, " "),
