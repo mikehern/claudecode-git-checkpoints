@@ -870,13 +870,13 @@ Return valid JSON only:
       clearTimeout(autoCommitCooldownTimer);
     }
     
-    // Start cooldown period (29 seconds)
+    // Start cooldown period (2 seconds)
     setAutoCommitCooldownActive(true);
     
     const timer = setTimeout(() => {
       setAutoCommitCooldownActive(false);
       setAutoCommitCooldownTimer(null);
-    }, 29000); // 29 seconds
+    }, 2000); // 2 seconds
     
     setAutoCommitCooldownTimer(timer);
   };
