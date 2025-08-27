@@ -2560,7 +2560,7 @@ Return valid JSON only:
         Box,
         {
           borderStyle: "round",
-          borderColor: hasUncommittedChanges ? "redBright" : undefined,
+          borderColor: hasUncommittedChanges ? "redBright" : "green",
           padding: 1,
         },
         React.createElement(
