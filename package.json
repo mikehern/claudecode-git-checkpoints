@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "node conversation-history-app.js",
-    "dev": "node --watch conversation-history-app.js"
+    "dev": "node --watch conversation-history-app.js",
+    "postinstall": "node -e \"console.log('\\nvpoints installed!\\n\\nRun vpoints safely using without affecting your original project with\\n\\nvpoints --trial\\n');\""
   },
   "dependencies": {
     "chalk": "^5.3.0",
