@@ -2334,67 +2334,72 @@ Return valid JSON only:
           }),
 
           React.createElement(Text, null, " "),
-          React.createElement(Text, { color: "gray" }, "Esc to exit")
-        )
-      ),
 
-      // Auto-checkpoint warning box (only show when auto-checkpoint option is selected)
-      isAutoCheckpointSelected &&
-        React.createElement(Text, null, " "),
-      isAutoCheckpointSelected &&
-        React.createElement(
-          Box,
-          { borderStyle: "single", borderColor: "red", padding: 1 },
-          React.createElement(
-            Box,
-            { flexDirection: "column" },
+          // Auto-checkpoint warning text (only show when auto-checkpoint option is selected)
+          isAutoCheckpointSelected &&
             React.createElement(
               Text,
               { bold: true, color: "red" },
               "WARNING: This is an experimental feature. We recommend you backup your code before enabling this."
             ),
+          isAutoCheckpointSelected &&
             React.createElement(Text, null, " "),
+          isAutoCheckpointSelected &&
             React.createElement(
               Text,
               null,
               "Any new messages sent to Claude Code *automatically trigger* a checkpoint, even if there are no code changes."
             ),
+          isAutoCheckpointSelected &&
             React.createElement(Text, null, " "),
+          isAutoCheckpointSelected &&
             React.createElement(
               Text,
               null,
               "Auto-checkpoints created containing changed code will include a `[*]` in front."
             ),
+          isAutoCheckpointSelected &&
             React.createElement(Text, null, " "),
+          isAutoCheckpointSelected &&
             React.createElement(
               Text,
               null,
               "Any messages sent within 3 seconds of one another will *not* trigger a checkpoint."
             ),
+          isAutoCheckpointSelected &&
             React.createElement(Text, null, " "),
+          isAutoCheckpointSelected &&
             React.createElement(
               Text,
               null,
               "We do not recommend using this mode if you already have a regular checkpoint or traditional git workflow."
             ),
+          isAutoCheckpointSelected &&
             React.createElement(Text, null, " "),
+          isAutoCheckpointSelected &&
             React.createElement(
               Text,
               { bold: true },
               "This is a great mode to use:"
             ),
+          isAutoCheckpointSelected &&
             React.createElement(
               Text,
               null,
               "- If you're coming from Cursor or another IDE with checkpoints"
             ),
+          isAutoCheckpointSelected &&
             React.createElement(
               Text,
               null,
               "- Rapidly prototyping and don't want to lose flow"
-            )
-          )
+            ),
+          isAutoCheckpointSelected &&
+            React.createElement(Text, null, " "),
+
+          React.createElement(Text, { color: "gray" }, "Esc to exit")
         )
+      )
     );
   };
 
