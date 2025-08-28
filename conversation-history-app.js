@@ -45,7 +45,11 @@ const GitCommitHistoryApp = () => {
   const [successAnimatingIndex, setSuccessAnimatingIndex] = useState(-1);
   const [successAnimationProgress, setSuccessAnimationProgress] = useState(0);
   const [successAnimationPhase, setSuccessAnimationPhase] = useState(1); // 1 = turning green, 2 = turning back to default
-  const [options, setOptions] = useState({ audio: true, customPrefix: true, autoCheckpoint: false });
+  const [options, setOptions] = useState({
+    audio: true,
+    customPrefix: true,
+    autoCheckpoint: false,
+  });
   const [optionsSelectedIndex, setOptionsSelectedIndex] = useState(0);
   const [hasUncommittedChanges, setHasUncommittedChanges] = useState(false);
   const [fileChangesCount, setFileChangesCount] = useState(0);
@@ -61,7 +65,8 @@ const GitCommitHistoryApp = () => {
   const [autoCommitFlashTimer, setAutoCommitFlashTimer] = useState(null);
   const [isAutoCommitting, setIsAutoCommitting] = useState(false);
   const [lastAutoCommitTime, setLastAutoCommitTime] = useState(0);
-  const [autoCommitCooldownActive, setAutoCommitCooldownActive] = useState(false);
+  const [autoCommitCooldownActive, setAutoCommitCooldownActive] =
+    useState(false);
   const [autoCommitCooldownTimer, setAutoCommitCooldownTimer] = useState(null);
 
   // Claude Decide feature state
@@ -869,15 +874,15 @@ Return valid JSON only:
     if (autoCommitCooldownTimer) {
       clearTimeout(autoCommitCooldownTimer);
     }
-    
+
     // Start cooldown period (2.4 seconds)
     setAutoCommitCooldownActive(true);
-    
+
     const timer = setTimeout(() => {
       setAutoCommitCooldownActive(false);
       setAutoCommitCooldownTimer(null);
     }, 2400); // 2.4 seconds
-    
+
     setAutoCommitCooldownTimer(timer);
   };
 
@@ -886,68 +891,74 @@ Return valid JSON only:
     if (autoCommitFlashTimer) {
       clearTimeout(autoCommitFlashTimer);
     }
-    
+
     // Start orange flash (600ms)
     setAutoCommitFlashActive(true);
-    
+
     const timer = setTimeout(() => {
       setAutoCommitFlashActive(false);
       setAutoCommitFlashTimer(null);
-      
+
       // After flash ends, start cooldown period
       startCooldownPeriod();
     }, 600);
-    
+
     setAutoCommitFlashTimer(timer);
   };
 
   const handleAutoCheckpoint = async (inputText) => {
-    if (showCreateCheckpoint || showClaudeDecide || showCustomLabel || showCustomDescription) {
+    if (
+      showCreateCheckpoint ||
+      showClaudeDecide ||
+      showCustomLabel ||
+      showCustomDescription
+    ) {
       return; // Don't interfere with manual flows
     }
 
     setIsAutoCommitting(true);
     try {
       const git = simpleGit(process.cwd());
-      
+
       // Validate git state
       const status = await git.status();
       if (status.conflicted.length > 0) return;
-      
+
       const branch = await git.branch();
       if (branch.detached) return;
-      
+
       // Check for file changes
       const fileChanges = await getCurrentFileChanges();
-      const hasChanges = fileChanges.added.length > 0 || 
-                        fileChanges.modified.length > 0 || 
-                        fileChanges.removed.length > 0;
-      
+      const hasChanges =
+        fileChanges.added.length > 0 ||
+        fileChanges.modified.length > 0 ||
+        fileChanges.removed.length > 0;
+
       await git.add(".");
-      
+
       // Format commit message
       const prefix = hasChanges ? "[*]" : "[ ]";
       const maxLength = 72 - prefix.length - 1;
-      const truncatedText = inputText.length > maxLength 
-        ? inputText.slice(0, maxLength - 3) + "..."
-        : inputText;
+      const truncatedText =
+        inputText.length > maxLength
+          ? inputText.slice(0, maxLength - 3) + "..."
+          : inputText;
       const commitMessage = `${prefix} ${truncatedText}`;
-      
+
       // Commit with appropriate flags
       if (hasChanges) {
         await git.commit(commitMessage);
       } else {
         await git.commit(commitMessage, ["--allow-empty"]);
       }
-      
+
       // UI feedback
       triggerAutoCommitFlash();
       loadCommits();
-      
+
       if (options.audio) {
         playCheckpointSound();
       }
-      
     } catch (error) {
       console.error("Auto-checkpoint failed:", error);
     } finally {
@@ -1236,23 +1247,30 @@ Return valid JSON only:
 
   // Auto-checkpoint trigger effect
   useEffect(() => {
-    if (!options.autoCheckpoint || !lastClaudeInput?.text || isAutoCommitting) return;
-    
+    if (!options.autoCheckpoint || !lastClaudeInput?.text || isAutoCommitting)
+      return;
+
     const now = Date.now();
     const MIN_INTERVAL = 3000; // 3 seconds rate limit
-    
+
     if (now - lastAutoCommitTime < MIN_INTERVAL) return;
-    
+
     if (lastProcessedInput !== lastClaudeInput.text) {
       const timer = setTimeout(() => {
         handleAutoCheckpoint(lastClaudeInput.text);
         setLastProcessedInput(lastClaudeInput.text);
         setLastAutoCommitTime(now);
       }, 1500); // Debounce for file system stability
-      
+
       return () => clearTimeout(timer);
     }
-  }, [lastClaudeInput?.text, options.autoCheckpoint, lastProcessedInput, lastAutoCommitTime, isAutoCommitting]);
+  }, [
+    lastClaudeInput?.text,
+    options.autoCheckpoint,
+    lastProcessedInput,
+    lastAutoCommitTime,
+    isAutoCommitting,
+  ]);
 
   // Initialize lastProcessedInput on startup to prevent auto-committing existing messages
   useEffect(() => {
@@ -2342,40 +2360,35 @@ Return valid JSON only:
               { bold: true, color: "red" },
               "WARNING: This is an experimental feature. We recommend you backup your code before enabling this."
             ),
-          isAutoCheckpointSelected &&
-            React.createElement(Text, null, " "),
+          isAutoCheckpointSelected && React.createElement(Text, null, " "),
           isAutoCheckpointSelected &&
             React.createElement(
               Text,
               null,
               "Any new messages sent to Claude Code *automatically trigger* a checkpoint, even if there are no code changes."
             ),
-          isAutoCheckpointSelected &&
-            React.createElement(Text, null, " "),
+          isAutoCheckpointSelected && React.createElement(Text, null, " "),
           isAutoCheckpointSelected &&
             React.createElement(
               Text,
               null,
               "Auto-checkpoints created containing changed code will include a `[*]` in front."
             ),
-          isAutoCheckpointSelected &&
-            React.createElement(Text, null, " "),
+          isAutoCheckpointSelected && React.createElement(Text, null, " "),
           isAutoCheckpointSelected &&
             React.createElement(
               Text,
               null,
               "Any messages sent within 3 seconds of one another will *not* trigger a checkpoint."
             ),
-          isAutoCheckpointSelected &&
-            React.createElement(Text, null, " "),
+          isAutoCheckpointSelected && React.createElement(Text, null, " "),
           isAutoCheckpointSelected &&
             React.createElement(
               Text,
               null,
               "We do not recommend using this mode if you already have a regular checkpoint or traditional git workflow."
             ),
-          isAutoCheckpointSelected &&
-            React.createElement(Text, null, " "),
+          isAutoCheckpointSelected && React.createElement(Text, null, " "),
           isAutoCheckpointSelected &&
             React.createElement(
               Text,
@@ -2394,8 +2407,7 @@ Return valid JSON only:
               null,
               "- Rapidly prototyping and don't want to lose flow"
             ),
-          isAutoCheckpointSelected &&
-            React.createElement(Text, null, " "),
+          isAutoCheckpointSelected && React.createElement(Text, null, " "),
 
           React.createElement(Text, { color: "gray" }, "Esc to exit")
         )
@@ -2783,13 +2795,13 @@ Return valid JSON only:
         Box,
         {
           borderStyle: autoCommitFlashActive ? "bold" : "round", // Bold during flash
-          borderColor: autoCommitFlashActive 
-            ? "#FFA500"  // Orange flash takes priority
+          borderColor: autoCommitFlashActive
+            ? "#FFA500" // Orange flash takes priority
             : autoCommitCooldownActive
-              ? "gray"   // Gray during cooldown
-              : hasUncommittedChanges 
-                ? "redBright" 
-                : "green",
+            ? "gray" // Gray during cooldown
+            : hasUncommittedChanges
+            ? "redBright"
+            : "green",
           borderDimColor: autoCommitCooldownActive, // Dim during cooldown
           padding: 1,
         },
@@ -2836,7 +2848,7 @@ Return valid JSON only:
             Text,
             { color: "gray" },
             hasCommits
-              ? "Use ↑↓ to navigate • 1 to create • d for details • r to revert to this savepoint • u to undo last savepoint • o for options • x to exit"
+              ? "Use ↑↓ to navigate • 1 to create • d for details • r to revert to this checkpoint • u to undo last checkpoint • o for options • x to exit"
               : "1 to create your first checkpoint • o for options • x to exit"
           )
         )
@@ -2854,7 +2866,11 @@ Return valid JSON only:
         `${commits.length} `,
         React.createElement(Text, { color: "blue" }, "✓"),
         options.autoCheckpoint &&
-          React.createElement(Text, { color: "gray" }, " [ ] auto-checkpoint mode"),
+          React.createElement(
+            Text,
+            { color: "gray" },
+            " [ ] auto-checkpoint mode"
+          ),
         fileChangesCount > 0 &&
           React.createElement(
             Text,
