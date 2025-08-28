@@ -388,7 +388,7 @@ const GitCommitHistoryApp = () => {
       const git = simpleGit(process.cwd());
 
       // Apply prefix if enabled
-      const finalLabel = options.customPrefix ? `Checkpoint: ${label}` : label;
+      const finalLabel = options.customPrefix ? `Vibe: ${label}` : label;
 
       // Format commit message: label + empty line + description
       const commitMessage = description.trim()
@@ -1884,7 +1884,7 @@ Return valid JSON only:
     { key: "audio", label: "Audio", type: "boolean" },
     {
       key: "customPrefix",
-      label: "Prefix custom messages with 'Checkpoint'",
+      label: "Prefix custom messages with 'Vibe'",
       type: "boolean",
     },
     {
