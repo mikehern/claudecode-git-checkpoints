@@ -20,8 +20,14 @@ This is "checkpoints" - a terminal-based React app built with Ink that provides 
 # Start the app
 npm start
 
-# Development with auto-reload
+# Development with auto-reload (watches for file changes)
 npm run dev
+
+# Syntax check only (for testing without running the full app)
+node -c conversation-history-app.js
+
+# Global installation as 'vpoints' command
+npm install -g github:mikehern/claudecode-git-checkpoints
 ```
 
 ## Key Features & Workflows
@@ -29,6 +35,10 @@ npm run dev
 - **Checkpoint Creation**: Stages all changes and commits with the last Claude input as commit message
 - **Interactive History**: Navigate through git commits with keyboard shortcuts
 - **Undo/Revert**: Git reset and revert operations with confirmation dialogs
+- **Claude Decide**: AI-powered commit message generation using Claude CLI with two styles:
+  - **Vibecoder**: Creative, user-intent focused messages that connect user requests to implementation
+  - **Prototyper**: Technical, conventional commit format based purely on code changes
+- **Auto-checkpoint**: Automatic commit creation based on file changes with cooldown periods
 - **Sound Effects**: Audio feedback for actions (can be disabled in options)
 - **Custom Commit Messages**: Support for custom labels and descriptions
 
@@ -36,10 +46,12 @@ npm run dev
 
 The app manages complex UI state including:
 - Commit list navigation (selectedIndex, windowStart for scrolling)
-- Modal states (showOptions, showUndoConfirm, showRevertConfirm, etc.)
-- Animation states (successAnimatingIndex, successAnimationProgress)
+- Modal states (showOptions, showUndoConfirm, showRevertConfirm, showClaudeDecide, etc.)
+- Animation states (successAnimatingIndex, successAnimationProgress, autoCommitFlash)
 - Form inputs (customLabel, customDescription)
-- Git status (hasUncommittedChanges)
+- Git status (hasUncommittedChanges, currentFileChanges)
+- Auto-checkpoint state (cooldown timers, flash animations, processing flags)
+- Claude Decide state (loading animations, suggestions, error handling)
 
 ## Keyboard Shortcuts
 
@@ -49,12 +61,39 @@ The app manages complex UI state including:
 
 ## File Structure
 
-- Main app logic in single file: `conversation-history-app.js`
-- Audio assets: `sounds/*.wav`
-- Sample conversation files: `sample/*.jsonl`
-- Configuration: `options.json`, `package.json`
+- **Main app logic**: `conversation-history-app.js` - Single-file React Ink application
+- **Helper utilities**: `current-project-clean-history.js` - Extracts user inputs from Claude Code conversation logs
+- **Audio assets**: `sounds/*.wav` - Sound effects (checkpoint.wav, exit.wav, menu-move.wav, next.wav, revert.wav)
+- **Sample conversation files**: `sample/*.jsonl` - Example Claude Code conversation logs
+- **Configuration**: 
+  - `options.json` - User preferences (audio, customPrefix, autoCheckpoint)
+  - `~/.config/checkpoints/options.json` - Global user options
+  - `package.json` - Dependencies and npm scripts
 
 ## Git Integration Patterns
 
 The app directly interfaces with git repositories and expects to be run in a git working directory. All git operations are async and include error handling.
-- When you want to test, only use `node -c`
+
+## Dependencies
+
+Key dependencies and their purposes:
+- **ink** + **react**: Terminal-based React UI framework
+- **simple-git**: Git operations (status, commit, reset, revert, log)
+- **play-sound**: Audio feedback system
+- **chalk**: Terminal text styling and colors
+- **ink-link**: Clickable links in terminal output
+
+## Claude CLI Integration
+
+The app integrates with Claude CLI for AI-powered commit message generation:
+- Requires `claude` CLI tool installed and configured
+- Uses temporary files for prompt handling to avoid shell escaping issues
+- Implements timeout and error handling for external Claude CLI calls
+- Three distinct prompt styles for different commit message approaches
+
+## Testing and Validation
+
+- Use `node -c conversation-history-app.js` for syntax checking without execution
+- App validates git repository status on startup
+- All git operations include comprehensive error handling
+- File change detection and status monitoring built-in
