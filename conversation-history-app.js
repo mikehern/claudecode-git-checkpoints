@@ -926,7 +926,7 @@ Return valid JSON only:
       await git.add(".");
       
       // Format commit message
-      const prefix = hasChanges ? "[AUTO]" : "[AUTO-EMPTY]";
+      const prefix = hasChanges ? "[*]" : "[ ]";
       const maxLength = 72 - prefix.length - 1;
       const truncatedText = inputText.length > maxLength 
         ? inputText.slice(0, maxLength - 3) + "..."
@@ -2694,6 +2694,7 @@ Return valid JSON only:
         {
           borderStyle: "round",
           borderColor: "#ffe4b2ff",
+          borderDimColor: true,
           padding: 1,
           marginBottom: 1,
         },
@@ -2742,14 +2743,13 @@ Return valid JSON only:
       React.createElement(
         Box,
         {
-          borderStyle: autoCommitFlashActive || !autoCommitCooldownActive 
-            ? "round"    // Orange flash or ready state
-            : "classic", // Cooldown period
+          borderStyle: "round", // Always round now
           borderColor: autoCommitFlashActive 
             ? "#FFA500"  // Orange flash takes priority
             : hasUncommittedChanges 
               ? "redBright" 
               : "green",
+          borderDimColor: autoCommitCooldownActive, // Dim during cooldown
           padding: 1,
         },
         React.createElement(
@@ -2813,7 +2813,7 @@ Return valid JSON only:
         `${commits.length} `,
         React.createElement(Text, { color: "blue" }, "✓"),
         options.autoCheckpoint &&
-          React.createElement(Text, { color: "orange" }, " [AUTO]"),
+          React.createElement(Text, { color: "orange" }, " [ ] auto-checkpoint mode"),
         fileChangesCount > 0 &&
           React.createElement(
             Text,
