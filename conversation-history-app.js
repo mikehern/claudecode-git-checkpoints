@@ -2643,7 +2643,7 @@ Return valid JSON only:
     if (item.type === "create") {
       return React.createElement(
         Box,
-        { key: "create-checkpoint", width: "100%", flexDirection: "column" },
+        { key: "create-checkpoint", width: "100%", flexDirection: "column", marginBottom: 1 },
         React.createElement(
           Text,
           {
@@ -2714,7 +2714,7 @@ Return valid JSON only:
 
     return React.createElement(
       Box,
-      { key: globalIndex, width: "100%", flexDirection: "column" },
+      { key: globalIndex, width: "100%", flexDirection: "column", marginBottom: 1 },
       React.createElement(
         Text,
         {
