@@ -4,15 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is "checkpoints" - a terminal-based React app built with Ink that provides a git commit checkpoint management interface for Claude Code workflows. The app allows users to create, undo, and revert git commits with an interactive CLI interface.
+VPoints is a terminal-based React application built with Ink that provides git checkpoint management for Claude Code workflows. It allows users to create, undo, and revert git commits with an interactive CLI interface, designed specifically to enhance development workflows with AI assistants.
 
 ## Architecture
 
-- **Main Component**: `GitCommitHistoryApp` in `vpoints.js` - A React component rendered in the terminal using Ink
+- **Main Component**: Single-file React Ink application in `vpoints.js` 
 - **Git Integration**: Uses `simple-git` library for all git operations (commit history, staging, committing, undoing, reverting)
-- **State Management**: React hooks for UI state (selected items, modals, animations, options)
-- **Audio System**: `play-sound` integration with WAV files in `sounds/` directory
-- **Persistent Options**: JSON file-based configuration stored in `options.json`
+- **State Management**: Complex React hooks-based state for UI interactions, animations, and modal flows
+- **Audio System**: `play-sound` integration with WAV files in `sounds/` directory for user feedback
+- **Configuration**: JSON-based persistent options system with global and project-local settings
+- **Claude CLI Integration**: External process spawning for AI-powered commit message generation
 
 ## Development Commands
 
@@ -27,76 +28,99 @@ npm run dev
 node -c vpoints.js
 
 # Global installation as 'vpoints' command
-npm install -g github:mikehern/claudecode-git-checkpoints
+npm install -g .
 ```
 
-## Key Features & Workflows
+## Key Features & Complex State Management
 
-- **Checkpoint Creation**: Stages all changes and commits with the last Claude input as commit message
-- **Interactive History**: Navigate through git commits with keyboard shortcuts
-- **Undo/Revert**: Git reset and revert operations with confirmation dialogs
-- **Claude Decide**: AI-powered commit message generation using Claude CLI with two styles:
-  - **Vibecoder**: Creative, user-intent focused messages that connect user requests to implementation
-  - **Prototyper**: Technical, conventional commit format based purely on code changes
-- **Auto-checkpoint**: Automatic commit creation based on file changes with cooldown periods
-- **Sound Effects**: Audio feedback for actions (can be disabled in options)
-- **Custom Commit Messages**: Support for custom labels and descriptions
+The application manages sophisticated UI state across multiple concurrent features:
 
-## State Structure
+- **Checkpoint Creation**: Stages all changes and commits with Claude input as commit message
+- **Interactive History**: Scrollable commit list with keyboard navigation and windowing
+- **Undo/Revert Operations**: Git reset and revert with confirmation modals
+- **Claude Decide**: AI-powered commit message generation with loading states, error handling, and suggestion selection
+- **Auto-checkpoint**: File watching with cooldown timers and automatic commit creation
+- **Checkpoint Analysis**: AI-powered analysis of commit changes and impact
+- **Custom Commit Messages**: Form inputs for labels and descriptions
+- **Sound Effects**: Configurable audio feedback system
+- **Trial Mode**: Safe experimentation via `create-trial.js` utility
 
-The app manages complex UI state including:
+## State Architecture
 
-- Commit list navigation (selectedIndex, windowStart for scrolling)
-- Modal states (showOptions, showUndoConfirm, showRevertConfirm, showClaudeDecide, etc.)
-- Animation states (successAnimatingIndex, successAnimationProgress, autoCommitFlash)
-- Form inputs (customLabel, customDescription)
-- Git status (hasUncommittedChanges, currentFileChanges)
-- Auto-checkpoint state (cooldown timers, flash animations, processing flags)
-- Claude Decide state (loading animations, suggestions, error handling)
+The app uses a complex state system with multiple concurrent UI flows:
 
-## Keyboard Shortcuts
+```javascript
+// Navigation & Display State
+- selectedIndex, windowStart (commit list scrolling)
+- successAnimatingIndex, successAnimationProgress (visual feedback)
 
-- Navigation: Arrow keys, Enter for selection
-- Exit: `x`, `q`, or `esc` to quit
-- Context-specific shortcuts handled in `useInput` hook
+// Modal State Management  
+- showOptions, showUndoConfirm, showRevertConfirm
+- showCreateCheckpoint, showCheckpointDetails, showClaudeDecide
+- showCustomLabel, showCustomDescription, showCheckpointAnalysis
+
+// Git Status State
+- commits[], currentBranch, hasUncommittedChanges
+- currentFileChanges{added, modified, removed}
+
+// Auto-checkpoint State
+- lastProcessedInput, autoCommitFlashActive, isAutoCommitting
+- lastAutoCommitTime, autoCommitCooldownActive
+
+// Claude Integration State  
+- claudeDecideState{loading, suggestions, error}
+- claudeSuggestions[], loadingAnimationText, spinnerFrameIndex
+- analysisState, analysisResult, analysisError
+```
 
 ## File Structure
 
-- **Main app logic**: `vpoints.js` - Single-file React Ink application
-- **Helper utilities**: `current-project-clean-history.js` - Extracts user inputs from Claude Code conversation logs
-- **Audio assets**: `sounds/*.wav` - Sound effects (checkpoint.wav, exit.wav, menu-move.wav, next.wav, revert.wav)
-- **Sample conversation files**: `sample/*.jsonl` - Example Claude Code conversation logs
-- **Configuration**:
-  - `options.json` - User preferences (audio, customPrefix, autoCheckpoint)
-  - `~/.config/checkpoints/options.json` - Global user options
-  - `package.json` - Dependencies and npm scripts
+- **`vpoints.js`**: Main application (800+ lines, single-file architecture)
+- **`create-trial.js`**: Trial mode utility for safe experimentation
+- **`sounds/`**: Audio feedback files (checkpoint.wav, exit.wav, menu-move.wav, next.wav, revert.wav)
+- **`package.json`**: ES modules configuration, dependencies, and npm scripts
 
 ## Git Integration Patterns
 
-The app directly interfaces with git repositories and expects to be run in a git working directory. All git operations are async and include error handling.
-
-## Dependencies
-
-Key dependencies and their purposes:
-
-- **ink** + **react**: Terminal-based React UI framework
-- **simple-git**: Git operations (status, commit, reset, revert, log)
-- **play-sound**: Audio feedback system
-- **chalk**: Terminal text styling and colors
-- **ink-link**: Clickable links in terminal output
+- Expects to be run in a git working directory
+- All git operations are async with comprehensive error handling
+- Uses `simple-git` for: status, commit, reset, revert, log operations
+- File change detection and monitoring built-in
+- Validates git repository status on startup
 
 ## Claude CLI Integration
 
-The app integrates with Claude CLI for AI-powered commit message generation:
+External process integration for AI features:
 
 - Requires `claude` CLI tool installed and configured
 - Uses temporary files for prompt handling to avoid shell escaping issues
 - Implements timeout and error handling for external Claude CLI calls
-- Three distinct prompt styles for different commit message approaches
+- Multiple prompt styles: "Vibecoder" (creative, user-intent focused) and "Prototyper" (conventional commits)
+- Concurrent API calls with partial failure handling
+
+## Dependencies
+
+Key dependencies and their architectural role:
+
+- **ink + react**: Terminal-based React UI framework for complex state-driven interfaces
+- **simple-git**: Async git operations library
+- **play-sound**: Cross-platform audio feedback system  
+- **chalk**: Terminal text styling and colors
+- **ink-link**: Clickable terminal links
 
 ## Testing and Validation
 
-- Use `node -c vpoints.js` for syntax checking without execution
-- App validates git repository status on startup
-- All git operations include comprehensive error handling
+- Use `node -c vpoints.js` for syntax validation without execution
+- App includes startup validation for git repository status
+- All git operations include comprehensive error handling and user feedback
 - File change detection and status monitoring built-in
+- Trial mode (`create-trial.js`) provides safe testing environment
+
+## Development Notes
+
+- Single-file architecture with 800+ lines of React hooks-based state management
+- No external test framework - relies on syntax checking and runtime validation
+- Extensive use of `useEffect` hooks for managing concurrent async operations
+- Complex modal flow management with multiple overlapping UI states
+- Audio feedback system can be disabled via options
+- Global installation pattern using npm link or direct GitHub installation
