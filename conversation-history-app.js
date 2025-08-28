@@ -870,13 +870,13 @@ Return valid JSON only:
       clearTimeout(autoCommitCooldownTimer);
     }
     
-    // Start cooldown period (2 seconds)
+    // Start cooldown period (2.4 seconds)
     setAutoCommitCooldownActive(true);
     
     const timer = setTimeout(() => {
       setAutoCommitCooldownActive(false);
       setAutoCommitCooldownTimer(null);
-    }, 2000); // 2 seconds
+    }, 2400); // 2.4 seconds
     
     setAutoCommitCooldownTimer(timer);
   };
@@ -887,7 +887,7 @@ Return valid JSON only:
       clearTimeout(autoCommitFlashTimer);
     }
     
-    // Start orange flash (1 second)
+    // Start orange flash (600ms)
     setAutoCommitFlashActive(true);
     
     const timer = setTimeout(() => {
@@ -896,7 +896,7 @@ Return valid JSON only:
       
       // After flash ends, start cooldown period
       startCooldownPeriod();
-    }, 1000);
+    }, 600);
     
     setAutoCommitFlashTimer(timer);
   };
