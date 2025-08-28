@@ -2662,32 +2662,6 @@ Return valid JSON only:
     return React.createElement(
       Box,
       { flexDirection: "column", padding: 1 },
-      // ASCII Logo
-      React.createElement(
-        Box,
-        { justifyContent: "flex-start" },
-        React.createElement(
-          Text,
-          { color: "white" },
-          `     ________              __               _       __
-    / ____/ /_  ___  _____/ /______  ____  (_)___  / /______
-   / /   / __ \\/ _ \\/ ___/ //_/ __ \\/ __ \\/ / __ \\/ __/ ___/
-  / /___/ / / /  __/ /__/ ,< / /_/ / /_/ / / / / / /_(__  )
-  \\____/_/ /_/\\___/\\___/_/|_/ .___/\\____/_/_/ /_/\\__/____/
-                           /_/`
-        )
-      ),
-      React.createElement(
-        Box,
-        { justifyContent: "flex-start" },
-        React.createElement(
-          Text,
-          null,
-          React.createElement(Text, { color: "gray" }, "  for "),
-          chalk.hex("#FFA500")("Claude Code")
-        )
-      ),
-      React.createElement(Text, null, " "),
       // "Where You and Claude Left Off" section with orange border
       React.createElement(
         Box,
