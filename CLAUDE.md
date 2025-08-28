@@ -57,3 +57,4 @@ The app manages complex UI state including:
 ## Git Integration Patterns
 
 The app directly interfaces with git repositories and expects to be run in a git working directory. All git operations are async and include error handling.
+- When you want to test, only use `node -c`
