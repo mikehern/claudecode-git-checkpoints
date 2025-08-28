@@ -85,6 +85,16 @@ const GitCommitHistoryApp = () => {
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0); // For suggestions navigation
   const [spinnerFrameIndex, setSpinnerFrameIndex] = useState(0);
 
+  // Checkpoint Analysis feature state
+  const [showCheckpointAnalysis, setShowCheckpointAnalysis] = useState(false);
+  const [analysisState, setAnalysisState] = useState("loading"); // 'loading' | 'complete' | 'error'
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [analysisError, setAnalysisError] = useState(null);
+  const [analysisLoadingText, setAnalysisLoadingText] = useState(
+    "Reticulating Claude splines..."
+  );
+  const [analysisSpinnerFrameIndex, setAnalysisSpinnerFrameIndex] = useState(0);
+
   const { exit } = useApp();
 
   const optionsPath = path.join(
@@ -870,6 +880,113 @@ Return valid JSON only:
     }
   };
 
+  // Handle checkpoint analysis flow
+  const handleCheckpointAnalysis = async () => {
+    try {
+      setShowCheckpointAnalysis(true);
+      setAnalysisState("loading");
+      setAnalysisLoadingText("Reticulating Claude splines...");
+
+      // Get current commit and previous commit for comparison
+      const currentCommit = selectedCommitDetails.hash;
+      const currentIndex = commits.findIndex((c) => c.hash === currentCommit);
+
+      // Determine the previous commit (if it exists)
+      let prevCommit;
+      if (currentIndex < commits.length - 1) {
+        prevCommit = commits[currentIndex + 1].hash;
+      } else {
+        // This is the first commit - analyze it in isolation
+        prevCommit = null;
+      }
+
+      // Build the prompt based on whether we have a previous commit
+      let prompt;
+      if (prevCommit) {
+        prompt = `<task>
+  <instruction>
+    Run \`git diff ${prevCommit}..${currentCommit}\` and provide a single, concise analysis.
+  </instruction>
+  
+  <format>
+    Format your response as follows:
+    1. One summary sentence
+    2. Bulleted list of key changes (use • not **)
+    3. Write for non-technical users
+  </format>
+</task>`;
+      } else {
+        // First commit - analyze what it introduces
+        prompt = `<task>
+  <instruction>
+    Run \`git show ${currentCommit}\` and provide a single, concise analysis of what this initial checkpoint introduces.
+  </instruction>
+  
+  <format>
+    Format your response as follows:
+    1. One summary sentence about what this checkpoint establishes
+    2. Bulleted list of key additions (use • not **)
+    3. Write for non-technical users
+  </format>
+</task>`;
+      }
+
+      // Write prompt to temporary file to avoid shell escaping issues
+      const tempFile = `/tmp/checkpoint-analysis-${Date.now()}.txt`;
+      fs.writeFileSync(tempFile, prompt);
+
+      // Update loading text with more specific status
+      setAnalysisLoadingText("Reverse engineering coffee machine...");
+
+      // Use claude CLI with tool restrictions for safety
+      // Note: --max-turns 3 allows Claude to: 1) use git tool, 2) analyze output, 3) provide response
+      const { stdout: result } = await execAsync(
+        `cat "${tempFile}" | claude -p --max-turns 3 ` +
+          `--allowedTools "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" "Bash(git status:*)" ` +
+          `--disallowedTools "Write" "Edit" "Bash(git add:*)" "Bash(git commit:*)" "Bash(git push:*)" "Bash(git reset:*)"`,
+        {
+          encoding: "utf8",
+          timeout: 45000, // 45 second timeout
+          cwd: process.cwd(), // Run in current directory
+        }
+      );
+
+      // Clean up temp file
+      fs.unlinkSync(tempFile);
+
+      // Set the result and update state
+      setAnalysisResult(result.trim());
+      setAnalysisState("complete");
+
+      // Play success sound when analysis completes
+      playCheckpointSound();
+    } catch (error) {
+      console.error("Checkpoint analysis failed:", error);
+
+      // Handle different error types with user-friendly messages
+      if (error.message.includes("command not found")) {
+        setAnalysisError(
+          "Claude Code CLI not found. Please install Claude Code first."
+        );
+      } else if (
+        error.message.includes("not authenticated") ||
+        error.message.includes("ANTHROPIC_API_KEY")
+      ) {
+        setAnalysisError(
+          'Claude Code not authenticated. Run "claude auth" first.'
+        );
+      } else if (error.message.includes("timeout")) {
+        setAnalysisError("Analysis timed out. Please try again.");
+      } else {
+        setAnalysisError(`Error: ${error.message}`);
+      }
+      setAnalysisState("error");
+
+      // Play error sound
+      playNextSound();
+    }
+  };
+
   // Auto-checkpoint functionality
   const startCooldownPeriod = () => {
     // Clear any existing cooldown timer
@@ -1489,6 +1606,18 @@ Return valid JSON only:
       return;
     }
 
+    if (showCheckpointAnalysis) {
+      // Checkpoint analysis view navigation
+      if (key.escape) {
+        playNextSound();
+        setShowCheckpointAnalysis(false);
+        setAnalysisResult(null);
+        setAnalysisError(null);
+        return;
+      }
+      return;
+    }
+
     if (showCheckpointDetails) {
       // Checkpoint details page navigation
       if (key.escape) {
@@ -1496,6 +1625,11 @@ Return valid JSON only:
         setShowCheckpointDetails(false);
         setSelectedCommitDetails(null);
         setCommitFileChanges({ added: [], modified: [], removed: [] });
+        return;
+      } else if (input === "a" || input === "A") {
+        // Trigger checkpoint analysis
+        playNextSound(); // Play navigation sound when pressing 'a'
+        handleCheckpointAnalysis();
         return;
       }
 
@@ -1868,6 +2002,17 @@ Return valid JSON only:
     }
   }, [showClaudeDecide, claudeDecideState]);
 
+  // Spinner animation effect for Checkpoint Analysis
+  useEffect(() => {
+    if (showCheckpointAnalysis && analysisState === "loading") {
+      const interval = setInterval(() => {
+        setAnalysisSpinnerFrameIndex((prev) => (prev + 1) % 5);
+      }, 125);
+
+      return () => clearInterval(interval);
+    }
+  }, [showCheckpointAnalysis, analysisState]);
+
   // State detection for empty repository
   const hasCommits = commits.length > 0;
   const isEmptyRepository = isGitRepository === true && !hasCommits;
@@ -2219,7 +2364,11 @@ Return valid JSON only:
             commitFileChanges.modified.length > 0 ||
             commitFileChanges.removed.length > 0) &&
             React.createElement(Text, null, " "),
-          React.createElement(Text, { color: "gray" }, "Press 'Esc' to go back")
+          React.createElement(
+            Text,
+            { color: "gray" },
+            "Press 'a' to ask Claude what happened during this checkpoint • Press 'Esc' to go back"
+          )
         )
       )
     );
@@ -2515,6 +2664,79 @@ Return valid JSON only:
                   claudeSuggestions.length === 1
                     ? "Press 1 to select • Enter to confirm • Esc to go back"
                     : "Press 1-2 to select • Enter to confirm • Esc to go back"
+                ),
+              ])
+        )
+      )
+    );
+  };
+
+  // Render spinner for analysis
+  const renderAnalysisSpinner = () => {
+    const spinnerFrames = ["∙∙∙", "●∙∙", "∙●∙", "∙∙●", "∙∙∙"];
+    return chalk.hex("#FFA500")(spinnerFrames[analysisSpinnerFrameIndex]);
+  };
+
+  // Render loading text for analysis
+  const renderAnalysisLoadingText = () => {
+    return chalk.hex("#FFA500")(analysisLoadingText);
+  };
+
+  // Render checkpoint analysis view (similar to Claude Decide but for analysis)
+  const renderCheckpointAnalysisView = () => {
+    const isLoading = analysisState === "loading";
+    const hasError = analysisState === "error";
+
+    return React.createElement(
+      Box,
+      { flexDirection: "column", padding: 1 },
+      React.createElement(
+        Box,
+        { borderStyle: "single", padding: 1 },
+        React.createElement(
+          Box,
+          { flexDirection: "column" },
+          React.createElement(
+            Text,
+            { bold: true, color: "blueBright" },
+            "Asking Claude About This Checkpoint"
+          ),
+          React.createElement(Text, null, " "),
+
+          // Conditionally render loading, error, or analysis result
+          ...(isLoading
+            ? [
+                React.createElement(
+                  Text,
+                  { key: "loading-with-spinner" },
+                  `${renderAnalysisSpinner()} ${renderAnalysisLoadingText()}`
+                ),
+              ]
+            : hasError
+            ? [
+                React.createElement(
+                  Text,
+                  { key: "error", color: "red" },
+                  analysisError || "Failed to analyze checkpoint"
+                ),
+                React.createElement(Text, { key: "spacer" }, " "),
+                React.createElement(
+                  Text,
+                  { key: "help", color: "gray" },
+                  "Press Esc to go back"
+                ),
+              ]
+            : [
+                React.createElement(
+                  Text,
+                  { key: "analysis", wrap: "wrap" },
+                  analysisResult
+                ),
+                React.createElement(Text, { key: "spacer" }, " "),
+                React.createElement(
+                  Text,
+                  { key: "help", color: "gray" },
+                  "Press Esc to go back"
                 ),
               ])
         )
@@ -2985,6 +3207,10 @@ Return valid JSON only:
 
   if (showCustomDescription) {
     return renderCustomDescriptionView();
+  }
+
+  if (showCheckpointAnalysis) {
+    return renderCheckpointAnalysisView();
   }
 
   if (showCheckpointDetails) {
