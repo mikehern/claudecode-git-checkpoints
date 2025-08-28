@@ -2289,6 +2289,8 @@ Return valid JSON only:
 
   // Render options view
   const renderOptionsView = () => {
+    const isAutoCheckpointSelected = optionsSelectedIndex === 2; // autoCheckpoint is at index 2
+
     return React.createElement(
       Box,
       { flexDirection: "column", padding: 1 },
@@ -2334,7 +2336,65 @@ Return valid JSON only:
           React.createElement(Text, null, " "),
           React.createElement(Text, { color: "gray" }, "Esc to exit")
         )
-      )
+      ),
+
+      // Auto-checkpoint warning box (only show when auto-checkpoint option is selected)
+      isAutoCheckpointSelected &&
+        React.createElement(Text, null, " "),
+      isAutoCheckpointSelected &&
+        React.createElement(
+          Box,
+          { borderStyle: "single", borderColor: "red", padding: 1 },
+          React.createElement(
+            Box,
+            { flexDirection: "column" },
+            React.createElement(
+              Text,
+              { bold: true, color: "red" },
+              "WARNING: This is an experimental feature. We recommend you backup your code before enabling this."
+            ),
+            React.createElement(Text, null, " "),
+            React.createElement(
+              Text,
+              null,
+              "Any new messages sent to Claude Code *automatically trigger* a checkpoint, even if there are no code changes."
+            ),
+            React.createElement(Text, null, " "),
+            React.createElement(
+              Text,
+              null,
+              "Auto-checkpoints created containing changed code will include a `[*]` in front."
+            ),
+            React.createElement(Text, null, " "),
+            React.createElement(
+              Text,
+              null,
+              "Any messages sent within 3 seconds of one another will *not* trigger a checkpoint."
+            ),
+            React.createElement(Text, null, " "),
+            React.createElement(
+              Text,
+              null,
+              "We do not recommend using this mode if you already have a regular checkpoint or traditional git workflow."
+            ),
+            React.createElement(Text, null, " "),
+            React.createElement(
+              Text,
+              { bold: true },
+              "This is a great mode to use:"
+            ),
+            React.createElement(
+              Text,
+              null,
+              "- If you're coming from Cursor or another IDE with checkpoints"
+            ),
+            React.createElement(
+              Text,
+              null,
+              "- Rapidly prototyping and don't want to lose flow"
+            )
+          )
+        )
     );
   };
 
