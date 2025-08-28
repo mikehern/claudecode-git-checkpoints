@@ -3086,11 +3086,15 @@ Return valid JSON only:
               : "1 to create your first checkpoint • o for options • x to exit"
           )
         )
-      ),
+      )
+    );
+  };
 
-      // Blank line
-      React.createElement(Text, null, " "),
-
+  // Render persistent status bar
+  const renderStatusBar = () => {
+    return React.createElement(
+      Box,
+      { flexDirection: "column" },
       // Status line: branch name, commit count, file changes
       React.createElement(
         Text,
@@ -3137,103 +3141,123 @@ Return valid JSON only:
     );
   };
 
-  // Show loading or error state if git repository check is in progress or failed
-  if (isGitRepository === null) {
-    return React.createElement(
-      Box,
-      { flexDirection: "column", padding: 1 },
-      React.createElement(Text, null, "Checking git repository...")
-    );
-  }
-
-  if (isGitRepository === false) {
-    return React.createElement(
-      Box,
-      { flexDirection: "column", padding: 1 },
-      React.createElement(
+  // Get current view content
+  const getCurrentView = () => {
+    // Show loading or error state if git repository check is in progress or failed
+    if (isGitRepository === null) {
+      return React.createElement(
         Box,
-        { borderStyle: "single", padding: 1 },
+        { flexDirection: "column", padding: 1 },
+        React.createElement(Text, null, "Checking git repository...")
+      );
+    }
+
+    if (isGitRepository === false) {
+      return React.createElement(
+        Box,
+        { flexDirection: "column", padding: 1 },
         React.createElement(
           Box,
-          { flexDirection: "column" },
+          { borderStyle: "single", padding: 1 },
           React.createElement(
-            Text,
-            { bold: true, color: "red" },
-            "Not a Git Repository"
-          ),
-          React.createElement(Text, null, " "),
-          React.createElement(
-            Text,
-            null,
-            "Checkpoints can only run in directories that are git repositories."
-          ),
-          React.createElement(Text, null, " "),
-          React.createElement(Text, null, "Our project directory is:"),
-          React.createElement(Text, { color: "yellow" }, process.cwd()),
-          React.createElement(Text, null, " "),
-          React.createElement(
-            Text,
-            null,
-            "Do you want to create a git repository here?"
-          ),
-          React.createElement(Text, null, " "),
-          React.createElement(
-            Text,
-            null,
-            "When you run Claude Code, it should be run from this same directory. Make sure it only includes the subdirectories and files you want to change during coding sessions"
-          ),
-          React.createElement(Text, null, " "),
-          React.createElement(Text, { color: "green" }, "Press 'y' to confirm"),
-          React.createElement(Text, { color: "gray" }, "Press 'x' to exit")
+            Box,
+            { flexDirection: "column" },
+            React.createElement(
+              Text,
+              { bold: true, color: "red" },
+              "Not a Git Repository"
+            ),
+            React.createElement(Text, null, " "),
+            React.createElement(
+              Text,
+              null,
+              "Checkpoints can only run in directories that are git repositories."
+            ),
+            React.createElement(Text, null, " "),
+            React.createElement(Text, null, "Our project directory is:"),
+            React.createElement(Text, { color: "yellow" }, process.cwd()),
+            React.createElement(Text, null, " "),
+            React.createElement(
+              Text,
+              null,
+              "Do you want to create a git repository here?"
+            ),
+            React.createElement(Text, null, " "),
+            React.createElement(
+              Text,
+              null,
+              "When you run Claude Code, it should be run from this same directory. Make sure it only includes the subdirectories and files you want to change during coding sessions"
+            ),
+            React.createElement(Text, null, " "),
+            React.createElement(Text, { color: "green" }, "Press 'y' to confirm"),
+            React.createElement(Text, { color: "gray" }, "Press 'x' to exit")
+          )
         )
-      )
-    );
-  }
-
-  if (showClaudeDecide) {
-    if (
-      claudeDecideState === "loading" ||
-      claudeDecideState === "suggestions"
-    ) {
-      return renderClaudeDecideView(); // Unified function handles both states
-    } else if (claudeDecideState === "error") {
-      return renderClaudeDecideErrorView();
+      );
     }
+
+    if (showClaudeDecide) {
+      if (
+        claudeDecideState === "loading" ||
+        claudeDecideState === "suggestions"
+      ) {
+        return renderClaudeDecideView(); // Unified function handles both states
+      } else if (claudeDecideState === "error") {
+        return renderClaudeDecideErrorView();
+      }
+    }
+
+    if (showCustomLabel) {
+      return renderCustomLabelView();
+    }
+
+    if (showCustomDescription) {
+      return renderCustomDescriptionView();
+    }
+
+    if (showCheckpointAnalysis) {
+      return renderCheckpointAnalysisView();
+    }
+
+    if (showCheckpointDetails) {
+      return renderCheckpointDetailsView();
+    }
+
+    if (showCreateCheckpoint) {
+      return renderCreateCheckpointView();
+    }
+
+    if (showRevertConfirm) {
+      return renderRevertConfirmView();
+    }
+
+    if (showUndoConfirm) {
+      return renderUndoConfirmView();
+    }
+
+    if (showOptions) {
+      return renderOptionsView();
+    }
+
+    return renderMainView();
+  };
+
+  // Special cases that don't need status bar
+  if (isGitRepository === null || isGitRepository === false) {
+    return getCurrentView();
   }
 
-  if (showCustomLabel) {
-    return renderCustomLabelView();
-  }
-
-  if (showCustomDescription) {
-    return renderCustomDescriptionView();
-  }
-
-  if (showCheckpointAnalysis) {
-    return renderCheckpointAnalysisView();
-  }
-
-  if (showCheckpointDetails) {
-    return renderCheckpointDetailsView();
-  }
-
-  if (showCreateCheckpoint) {
-    return renderCreateCheckpointView();
-  }
-
-  if (showRevertConfirm) {
-    return renderRevertConfirmView();
-  }
-
-  if (showUndoConfirm) {
-    return renderUndoConfirmView();
-  }
-
-  if (showOptions) {
-    return renderOptionsView();
-  }
-
-  return renderMainView();
+  // Main app layout with persistent status bar
+  return React.createElement(
+    Box,
+    { flexDirection: "column", height: "100%" },
+    React.createElement(
+      Box,
+      { flexGrow: 1 },
+      getCurrentView()
+    ),
+    renderStatusBar()
+  );
 };
 
 // Trial copy functionality
