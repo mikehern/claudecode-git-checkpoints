@@ -2717,12 +2717,14 @@ Return valid JSON only:
       React.createElement(
         Box,
         {
-          borderStyle: "round", // Always round now
+          borderStyle: autoCommitFlashActive ? "bold" : "round", // Bold during flash
           borderColor: autoCommitFlashActive 
             ? "#FFA500"  // Orange flash takes priority
-            : hasUncommittedChanges 
-              ? "redBright" 
-              : "green",
+            : autoCommitCooldownActive
+              ? "gray"   // Gray during cooldown
+              : hasUncommittedChanges 
+                ? "redBright" 
+                : "green",
           borderDimColor: autoCommitCooldownActive, // Dim during cooldown
           padding: 1,
         },
