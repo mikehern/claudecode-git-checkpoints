@@ -2849,7 +2849,7 @@ Return valid JSON only:
         `${commits.length} `,
         React.createElement(Text, { color: "blue" }, "✓"),
         options.autoCheckpoint &&
-          React.createElement(Text, { color: "orange" }, " [ ] auto-checkpoint mode"),
+          React.createElement(Text, { color: "gray" }, " [ ] auto-checkpoint mode"),
         fileChangesCount > 0 &&
           React.createElement(
             Text,
