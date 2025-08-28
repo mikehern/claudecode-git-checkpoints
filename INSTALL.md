@@ -22,6 +22,7 @@ Run vpoints from any git repository:
 
 cd /path/to/your/git/repo
 vpoints
+```
 
 ## Trial Mode
 
@@ -32,6 +33,7 @@ vpoints --trial
 ```
 
 This will:
+
 - Copy your current project (excluding `.git` and `node_modules`)
 - Create a new directory with `-trial` suffix
 - Initialize a fresh git repository
@@ -40,6 +42,7 @@ This will:
 Perfect for testing vpoints features without affecting your original project. When you're satisfied with your experiments, return to your original directory and run `vpoints` normally.
 
 **Example:**
+
 ```bash
 cd /path/to/my-project
 vpoints --trial
@@ -56,4 +59,7 @@ npm install -g github:mikehern/claudecode-git-checkpoints
 Uninstall
 
 npm uninstall -g vpoints
+
+```
+
 ```
