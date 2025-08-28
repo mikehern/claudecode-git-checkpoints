@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Terminal app to quickly create, undo, and revert checkpoints while working with Claude Code",
-  "main": "conversation-history-app.js",
+  "main": "vpoints.js",
   "bin": {
-    "vpoints": "./conversation-history-app.js"
+    "vpoints": "./vpoints.js"
   },
   "scripts": {
-    "start": "node conversation-history-app.js",
-    "dev": "node --watch conversation-history-app.js"
+    "start": "node vpoints.js",
+    "dev": "node --watch vpoints.js"
   },
   "dependencies": {
     "chalk": "^5.3.0",

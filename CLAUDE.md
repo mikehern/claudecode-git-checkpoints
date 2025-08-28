@@ -8,7 +8,7 @@ This is "checkpoints" - a terminal-based React app built with Ink that provides 
 
 ## Architecture
 
-- **Main Component**: `GitCommitHistoryApp` in `conversation-history-app.js` - A React component rendered in the terminal using Ink
+- **Main Component**: `GitCommitHistoryApp` in `vpoints.js` - A React component rendered in the terminal using Ink
 - **Git Integration**: Uses `simple-git` library for all git operations (commit history, staging, committing, undoing, reverting)
 - **State Management**: React hooks for UI state (selected items, modals, animations, options)
 - **Audio System**: `play-sound` integration with WAV files in `sounds/` directory
@@ -24,7 +24,7 @@ npm start
 npm run dev
 
 # Syntax check only (for testing without running the full app)
-node -c conversation-history-app.js
+node -c vpoints.js
 
 # Global installation as 'vpoints' command
 npm install -g github:mikehern/claudecode-git-checkpoints
@@ -45,6 +45,7 @@ npm install -g github:mikehern/claudecode-git-checkpoints
 ## State Structure
 
 The app manages complex UI state including:
+
 - Commit list navigation (selectedIndex, windowStart for scrolling)
 - Modal states (showOptions, showUndoConfirm, showRevertConfirm, showClaudeDecide, etc.)
 - Animation states (successAnimatingIndex, successAnimationProgress, autoCommitFlash)
@@ -61,11 +62,11 @@ The app manages complex UI state including:
 
 ## File Structure
 
-- **Main app logic**: `conversation-history-app.js` - Single-file React Ink application
+- **Main app logic**: `vpoints.js` - Single-file React Ink application
 - **Helper utilities**: `current-project-clean-history.js` - Extracts user inputs from Claude Code conversation logs
 - **Audio assets**: `sounds/*.wav` - Sound effects (checkpoint.wav, exit.wav, menu-move.wav, next.wav, revert.wav)
 - **Sample conversation files**: `sample/*.jsonl` - Example Claude Code conversation logs
-- **Configuration**: 
+- **Configuration**:
   - `options.json` - User preferences (audio, customPrefix, autoCheckpoint)
   - `~/.config/checkpoints/options.json` - Global user options
   - `package.json` - Dependencies and npm scripts
@@ -77,6 +78,7 @@ The app directly interfaces with git repositories and expects to be run in a git
 ## Dependencies
 
 Key dependencies and their purposes:
+
 - **ink** + **react**: Terminal-based React UI framework
 - **simple-git**: Git operations (status, commit, reset, revert, log)
 - **play-sound**: Audio feedback system
@@ -86,6 +88,7 @@ Key dependencies and their purposes:
 ## Claude CLI Integration
 
 The app integrates with Claude CLI for AI-powered commit message generation:
+
 - Requires `claude` CLI tool installed and configured
 - Uses temporary files for prompt handling to avoid shell escaping issues
 - Implements timeout and error handling for external Claude CLI calls
@@ -93,7 +96,7 @@ The app integrates with Claude CLI for AI-powered commit message generation:
 
 ## Testing and Validation
 
-- Use `node -c conversation-history-app.js` for syntax checking without execution
+- Use `node -c vpoints.js` for syntax checking without execution
 - App validates git repository status on startup
 - All git operations include comprehensive error handling
 - File change detection and status monitoring built-in

@@ -3163,7 +3163,7 @@ const promptToOpenCheckpoints = (trialDir) => {
 const isMainModule =
   import.meta.url === `file://${process.argv[1]}` ||
   process.argv[1].endsWith("vpoints") ||
-  process.argv[1].includes("conversation-history-app.js");
+  process.argv[1].includes("vpoints.js");
 
 if (isMainModule) {
   // Check for --trial flag
