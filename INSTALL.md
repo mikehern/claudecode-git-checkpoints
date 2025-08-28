@@ -55,5 +55,5 @@ npm install -g github:mikehern/claudecode-git-checkpoints
 
 Uninstall
 
-npm uninstall -g vibepoints
+npm uninstall -g vpoints
 ```
