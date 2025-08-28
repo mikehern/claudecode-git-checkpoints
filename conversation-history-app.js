@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import React, { useState, useEffect } from "react";
 import { render, Text, Box, useInput, useApp } from "ink";
+import Link from "ink-link";
 import chalk from "chalk";
 import simpleGit from "simple-git";
 import sound from "play-sound";
@@ -2643,7 +2644,12 @@ Return valid JSON only:
     if (item.type === "create") {
       return React.createElement(
         Box,
-        { key: "create-checkpoint", width: "100%", flexDirection: "column", marginBottom: 1 },
+        {
+          key: "create-checkpoint",
+          width: "100%",
+          flexDirection: "column",
+          marginBottom: 1,
+        },
         React.createElement(
           Text,
           {
@@ -2714,7 +2720,12 @@ Return valid JSON only:
 
     return React.createElement(
       Box,
-      { key: globalIndex, width: "100%", flexDirection: "column", marginBottom: 1 },
+      {
+        key: globalIndex,
+        width: "100%",
+        flexDirection: "column",
+        marginBottom: 1,
+      },
       React.createElement(
         Text,
         {
@@ -2879,6 +2890,26 @@ Return valid JSON only:
               fileChangesCount === 1 ? "" : "s"
             } changed`
           )
+      ),
+
+      // Feedback line
+      React.createElement(
+        Text,
+        { dimColor: true },
+        React.createElement(
+          Text,
+          { color: "" },
+          "Have an idea or found an issue?  "
+        ),
+        React.createElement(
+          Link,
+          { url: "https://forms.gle/kHuN4etYJi2q9up77" },
+          React.createElement(
+            Text,
+            { color: "blue" },
+            "https://forms.gle/kHuN4etYJi2q9up77"
+          )
+        )
       )
     );
   };
